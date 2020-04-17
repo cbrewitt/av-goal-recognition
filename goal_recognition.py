@@ -4,7 +4,7 @@ import imageio
 import cv2
 import matplotlib.pyplot as plt
 import lanelet2
-from lanelet2.core import LaneletMap
+from lanelet2.core import LaneletMap, BasicPoint2d
 from lanelet2.geometry import findNearest
 
 import map_vis_lanelet2
@@ -287,7 +287,13 @@ class GoalDetector:
 
 class FeatureExtractor:
 
-    def extract_features(self, lanelet_map, agent_id, frames, goal):
+    def __init__(self, lanelet_map):
+        self.lanelet_map = lanelet_map
+        traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
+                                                      lanelet2.traffic_rules.Participants.Vehicle)
+        self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
+
+    def extract_features(self, agent_id, frames, goal):
         """Extracts a vector of features
 
         Args:
@@ -298,40 +304,58 @@ class FeatureExtractor:
             goal:
 
         Returns:
-            list: [in_correct_lane,
-                   distance_to_goal,
-                   speed,
-                   acceleration]
+            list: [in_correct_lane, distance_to_goal, speed, acceleration]
 
         """
 
-        pass
+        current_frame = frames[-1]
+        current_state = current_frame.agents[agent_id]
 
-    def in_correct_lane(self, track, frame_id, goal, lanelet_map):
-        pass
+        route = self.route_to_goal(current_state, goal)
+        if route is None:
+            raise ValueError('Unreachable goal')
+
+        speed = current_state.v_lon
+        acceleration = current_state.a_lon
+        in_correct_lane = self.in_correct_lane(route)
+        distance_to_goal = self.distance_to_goal(route)
+
+        return [distance_to_goal, in_correct_lane, speed, acceleration]
+
+    def route_to_goal(self, state, goal):
+        start_lanelet = self.get_current_lanelet(state)
+        goal_point = BasicPoint2d(goal[0], goal[1])
+        end_lanelet = self.lanelet_map.LaneletLayer.nearest(goal_point, 1)[0]
+        route = self.routing_graph.getRoute(start_lanelet, end_lanelet)
+        if route[-1] != end_lanelet:
+            return None
+        else:
+            return route
+
+    def get_current_lanelet(self, state):
+        point = BasicPoint2d(state.x, state.y)
+        lanelet = self.lanelet_map.laneletLayer.nearest(point, 1)[0]
+        return lanelet
+
+    @staticmethod
+    def in_correct_lane(route):
+        for i in range(0, len(route) - 1):
+            if route[i+1].id in [route[i].left_id, route[i].right_id]:
+                return False
+        return True
+
+    @staticmethod
+    def distance_to_goal(route):
+        # TODO - add distance travelled in first and last lanelet -
+        # investigate route object
+        return route.length2d()
 
 
 if __name__ == '__main__':
-    # recording_number = '30'
-    # tracks, static_info, meta_info = read_from_csv(
-    #     '../inD-dataset/data/{}_tracks.csv'.format(recording_number),
-    #     '../inD-dataset/data/{}_tracksMeta.csv'.format(recording_number),
-    #     '../inD-dataset/data/{}_recordingMeta.csv'.format(recording_number))
-    #
-    # map_meta = ScenarioConfig.load('scenario_config/heckstrasse.json')
-    # goal_detector = GoalDetector()
-    # agent_goals = goal_detector.get_agents_goals_ind(tracks, static_info, meta_info, map_meta)
-    # print(agent_goals)
-    # print('total_agents: {}'.format(len(tracks)))
-    # for goal_idx, goal in enumerate(map_meta.goals):
-    #     num_agents = sum([(goal in ag) for ag in agent_goals.values()])
-    #     print('goal G{} reached by {} agents'.format(goal_idx, num_agents))
-    #
-    # for agent, goals in agent_goals.items():
-    #     if len(goals) == 0:
-    #         print('agent {} has no goals'.format(agent))
-
     scenario = Scenario.load('scenario_config/heckstrasse.json')
     scenario.plot()
     plt.show()
-    print('done')
+
+
+
+
