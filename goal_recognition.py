@@ -1,9 +1,13 @@
 import numpy as np
 import json
+import imageio
+import cv2
+import matplotlib.pyplot as plt
 import lanelet2
 from lanelet2.core import LaneletMap
 from lanelet2.geometry import findNearest
 
+import map_vis_lanelet2
 from tracks_import import read_from_csv
 
 
@@ -62,6 +66,16 @@ class ScenarioConfig:
     def episodes(self):
         """list of dict: Configuration for all episodes for this scenario"""
         return self.config_dict.get('episodes')
+
+    @property
+    def background_image(self):
+        """str: Path to background image"""
+        return self.config_dict.get('background_image')
+
+    @property
+    def background_px_to_meter(self):
+        """float: Pixels per meter in background image"""
+        return self.config_dict.get('background_px_to_meter')
 
 
 class EpisodeConfig:
@@ -227,6 +241,26 @@ class Scenario:
         config = ScenarioConfig.load(file_path)
         return cls(config)
 
+    def plot(self):
+        axes = plt.gca()
+        map_vis_lanelet2.draw_lanelet_map(self.lanelet_map, axes)
+
+        # plot background image
+        if self.config.background_image is not None:
+            background_path = self.config.data_root + self.config.background_image
+            background = imageio.imread(background_path)
+            rescale_factor = self.config.background_px_to_meter
+            extent = (0, int(background.shape[1] * rescale_factor),
+                      -int(background.shape[0] * rescale_factor), 0)
+            plt.imshow(background, extent=extent)
+
+        # plot goals
+        goal_locations = self.config.goals
+        plt.plot(*zip(*goal_locations), 'ro', zorder=12, markersize=20)
+        for i in range(len(goal_locations)):
+            label = 'G{}'.format(i)
+            axes.annotate(label, goal_locations[i], zorder=12, color='white')
+
 
 class GoalDetector:
     """ Detects the goals of agents based on their trajectories"""
@@ -253,7 +287,7 @@ class GoalDetector:
 
 class FeatureExtractor:
 
-    def extract_features(self, state_history, lanelet_map, goal):
+    def extract_features(self, lanelet_map, agent_id, frames, goal):
         """Extracts a vector of features
 
         Args:
@@ -298,4 +332,6 @@ if __name__ == '__main__':
     #         print('agent {} has no goals'.format(agent))
 
     scenario = Scenario.load('scenario_config/heckstrasse.json')
+    scenario.plot()
+    plt.show()
     print('done')

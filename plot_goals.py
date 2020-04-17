@@ -4,6 +4,7 @@ import cv2
 import argparse
 import lanelet2
 
+from goal_recognition import Scenario
 import imageio
 import map_vis_lanelet2
 from tracks_import import read_from_csv
@@ -61,6 +62,8 @@ background_resized = cv2.resize(background, target_shape)
 
 goal_locations = [(17.40, -4.97),
                   (75.18, -56.65),
+
+
                   (62.47, -17.54)]
 
 goal_dist_threshold = 1.5
