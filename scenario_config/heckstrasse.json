@@ -1,0 +1,15 @@
+{
+  "lat_origin": 50.779081,
+  "lon_origin": 6.164788,
+  "goals": [[17.40, -4.97],
+            [75.18, -56.65],
+            [62.47, -17.54]],
+  "lanelet_file": "../inD_LaneletMaps/heckstrasse.osm",
+  "data_format": "ind",
+  "data_root": "../inD-dataset/data/",
+  "episodes": [
+    {
+      "recording_id":  "30"
+    }
+  ]
+}
