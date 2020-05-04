@@ -1,12 +1,13 @@
 import lanelet2
-from lanelet2.geometry import findNearest
-from lanelet2.core import BasicPoint2d
+from lanelet2 import geometry
+from lanelet2.core import BasicPoint2d, BoundingBox2d
 import matplotlib.pyplot as plt
+import numpy as np
+import time
 
 from goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
 from lanelet_helpers import LaneletHelpers
 from shapely.geometry import Point
-
 
 
 map_meta = ScenarioConfig.load('scenario_config/heckstrasse.json')
@@ -24,8 +25,22 @@ start = BasicPoint2d(11.6, -7.9)
 plt.plot([start.x], [start.y], 'yo')
 
 #start_lanelet = findNearest(lanelet_map.laneletLayer, start, 1)[2][1]
+nearest_lanelets = feature_extractor.lanelets_at(start)
 start_lanelet = feature_extractor.lanelet_at(start)
-LaneletHelpers.plot_lanelet(start_lanelet)
+
+radius = 1
+bounding_box = BoundingBox2d(BasicPoint2d(start.x - radius, start.y - radius),
+              BasicPoint2d(start.x + radius, start.y + radius))
+
+nearby_lanelets = lanelet_map.laneletLayer.search(bounding_box)
+lanelets_distance = [geometry.distance(l, start) for l in nearby_lanelets]
+dist_along = [LaneletHelpers.dist_along(l, start) for l in nearby_lanelets]
+
+state = scenario.episodes[0].agents[0].state_history[94]
+current_lanelet = feature_extractor.get_current_lanelet(state)
+LaneletHelpers.plot(current_lanelet)
+
+LaneletHelpers.plot(start_lanelet)
 print(start_lanelet)
 goal = BasicPoint2d(*map_meta.goals[0])
 end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
@@ -39,8 +54,7 @@ graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
 route = graph.getRoute(start_lanelet, end_lanelet)
 path = route.shortestPath()
 
-for ll in path:
-    LaneletHelpers.plot_lanelet(ll)
+#LaneletHelpers.plot_path(path)
 
 # for ll in graph.reachableSet(start_lanelet, 100.0, 0):
 #     plot_lanelet(ll)

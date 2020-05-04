@@ -38,29 +38,29 @@ def draw_lanelet_map(laneletmap, axes):
             print("ID " + str(ls.id) + ": Linestring type must be specified")
             continue
         elif ls.attributes["type"] == "curbstone":
-            type_dict = dict(color="black", linewidth=1, zorder=10)
+            type_dict = dict(color="black", linewidth=1)
         elif ls.attributes["type"] == "line_thin":
             if "subtype" in ls.attributes.keys() and ls.attributes["subtype"] == "dashed":
-                type_dict = dict(color="white", linewidth=1, zorder=10, dashes=[10, 10])
+                type_dict = dict(color="white", linewidth=1, dashes=[10, 10])
             else:
-                type_dict = dict(color="white", linewidth=1, zorder=10)
+                type_dict = dict(color="white", linewidth=1)
         elif ls.attributes["type"] == "line_thick":
             if "subtype" in ls.attributes.keys() and ls.attributes["subtype"] == "dashed":
-                type_dict = dict(color="white", linewidth=2, zorder=10, dashes=[10, 10])
+                type_dict = dict(color="white", linewidth=2, dashes=[10, 10])
             else:
-                type_dict = dict(color="white", linewidth=2, zorder=10)
+                type_dict = dict(color="white", linewidth=2)
         elif ls.attributes["type"] == "pedestrian_marking":
-            type_dict = dict(color="white", linewidth=1, zorder=10, dashes=[5, 10])
+            type_dict = dict(color="white", linewidth=1, dashes=[5, 10])
         elif ls.attributes["type"] == "bike_marking":
-            type_dict = dict(color="white", linewidth=1, zorder=10, dashes=[5, 10])
+            type_dict = dict(color="white", linewidth=1, dashes=[5, 10])
         elif ls.attributes["type"] == "stop_line":
-            type_dict = dict(color="white", linewidth=3, zorder=10)
+            type_dict = dict(color="white", linewidth=3)
         elif ls.attributes["type"] == "virtual":
-            type_dict = dict(color="blue", linewidth=1, zorder=10, dashes=[2, 5])
+            type_dict = dict(color="blue", linewidth=1, dashes=[2, 5])
         elif ls.attributes["type"] == "road_border":
-            type_dict = dict(color="black", linewidth=1, zorder=10)
+            type_dict = dict(color="black", linewidth=1)
         elif ls.attributes["type"] == "guard_rail":
-            type_dict = dict(color="black", linewidth=1, zorder=10)
+            type_dict = dict(color="black", linewidth=1)
         elif ls.attributes["type"] == "traffic_sign":
             continue
         else:

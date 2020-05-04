@@ -4,7 +4,7 @@ import imageio
 import cv2
 import matplotlib.pyplot as plt
 import lanelet2
-from lanelet2.core import LaneletMap, BasicPoint2d
+from lanelet2.core import LaneletMap, BasicPoint2d, BoundingBox2d
 from lanelet2 import geometry
 
 import map_vis_lanelet2
@@ -91,7 +91,7 @@ class EpisodeConfig:
         return self.config.get('recording_id')
 
 
-class AgentData:
+class Agent:
 
     def __init__(self, state_history, metadata):
         self.state_history = state_history
@@ -131,6 +131,13 @@ class AgentState:
         self.v_lat = v_lat
         self.a_lon = a_lon
         self.a_lat = a_lat
+
+    @property
+    def point(self):
+        return BasicPoint2d(self.x, self.y)
+
+    def plot(self):
+        plt.plot(self.x, self.y, 'yo')
 
 
 class Frame:
@@ -184,19 +191,21 @@ class IndEpisodeLoader(EpisodeLoader):
                 state = self._state_from_tracks(track, idx)
                 state_history.append(state)
                 frames[state.frame_id].add_agent_state(agent_meta.agent_id, state)
-            agent = AgentData(state_history, agent_meta)
+            agent = Agent(state_history, agent_meta)
             agents[agent_meta.agent_id] = agent
 
         return Episode(agents, frames)
 
     @staticmethod
     def _state_from_tracks(track, idx):
+        heading = np.deg2rad(track['heading'][idx])
+        heading = np.unwrap([0, heading])[1]
         return AgentState(track['frame'][idx],
                    track['xCenter'][idx],
                    track['yCenter'][idx],
                    track['xVelocity'][idx],
                    track['yVelocity'][idx],
-                   track['heading'][idx],
+                   heading,
                    track['xAcceleration'][idx],
                    track['yAcceleration'][idx],
                    track['lonVelocity'][idx],
@@ -263,10 +272,10 @@ class Scenario:
 
         # plot goals
         goal_locations = self.config.goals
-        plt.plot(*zip(*goal_locations), 'ro', zorder=12, markersize=20)
+        plt.plot(*zip(*goal_locations), 'ro', markersize=20)
         for i in range(len(goal_locations)):
             label = 'G{}'.format(i)
-            axes.annotate(label, goal_locations[i], zorder=12, color='white')
+            axes.annotate(label, goal_locations[i], color='white')
 
 
 class GoalDetector:
@@ -296,9 +305,9 @@ class FeatureExtractor:
 
     def __init__(self, lanelet_map):
         self.lanelet_map = lanelet_map
-        traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                                      lanelet2.traffic_rules.Participants.Vehicle)
-        self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
+        self.traffic_rules = lanelet2.traffic_rules.create(
+            lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
+        self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, self.traffic_rules)
 
     def extract(self, agent_id, frames, goal, route=None):
         """Extracts a vector of features
@@ -317,78 +326,128 @@ class FeatureExtractor:
 
         current_frame = frames[-1]
         current_state = current_frame.agents[agent_id]
+        state_history = [f.agents[agent_id] for f in frames]
+        lanelet_sequence = self.get_lanelet_sequence(state_history)
 
         if route is None:
-            route = self.route_to_goal(current_state, goal)
+            route = self.route_to_goal(lanelet_sequence[-1], goal)
         if route is None:
             raise ValueError('Unreachable goal')
 
         speed = current_state.v_lon
         acceleration = current_state.a_lon
         in_correct_lane = self.in_correct_lane(route)
-        distance_to_goal = self.distance_to_goal(current_state, goal, route)
+        path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
 
-        return {'distance_to_goal': distance_to_goal,
+        return {'path_to_goal_length': path_to_goal_length,
                 'in_correct_lane': in_correct_lane,
                 'speed': speed,
                 'acceleration': acceleration}
 
-    def reachable_goals(self, state, goals):
+    def reachable_goals(self, start_lanelet, goals):
         goals_and_routes = {}
         for goal_idx, goal in enumerate(goals):
-            route = self.route_to_goal(state, goal)
+            route = self.route_to_goal(start_lanelet, goal)
             if route is not None:
                 goals_and_routes[goal_idx] = route
         return goals_and_routes
 
-    def route_to_goal(self, state, goal):
-        start_lanelet = self.get_current_lanelet(state)
+    def route_to_goal(self, start_lanelet, goal):
         goal_point = BasicPoint2d(goal[0], goal[1])
-        end_lanelet = self.lanelet_at(goal_point)
-        route = self.routing_graph.getRoute(start_lanelet, end_lanelet)
-        return route
+        end_lanelets = self.lanelets_at(goal_point)
+        best_route = None
+        for end_lanelet in end_lanelets:
+            route = self.routing_graph.getRoute(start_lanelet, end_lanelet)
+            if (route is not None and route.shortestPath()[-1] == end_lanelet
+                    and (best_route is None or route.length2d() < best_route.length2d())):
+                best_route = route
+        return best_route
 
-    def get_current_lanelet(self, state):
-        # TODO - check lanelet type, if facing right way, etc
-        point = BasicPoint2d(state.x, state.y)
+    def get_current_lanelet(self, state, previous_lanelet=None):
+        point = state.point
+        radius = 3
+        bounding_box = BoundingBox2d(BasicPoint2d(point.x - radius, point.y - radius),
+                                     BasicPoint2d(point.x + radius, point.y + radius))
+        nearby_lanelets = self.lanelet_map.laneletLayer.search(bounding_box)
+
+        best_lanelet = None
+        best_angle_diff = None
+        best_dist = None
+        best_can_pass = False
+        for lanelet in nearby_lanelets:# temp
+            dist_from_point = geometry.distance(lanelet, point)
+            lane_heading = LaneletHelpers.heading_at(lanelet, point)
+            angle_diff = abs(np.diff(np.unwrap([lane_heading, state.heading])))
+            can_pass = (False if previous_lanelet is None
+                        else self.can_pass(previous_lanelet, lanelet))
+            if (angle_diff < np.pi/2
+                    and self.traffic_rules.canPass(lanelet)
+                    and (best_lanelet is None
+                         or (can_pass and not best_can_pass)
+                         or (dist_from_point < best_dist
+                             or (best_dist == dist_from_point
+                                 and angle_diff < best_angle_diff)))):
+                best_lanelet = lanelet
+                best_angle_diff = angle_diff
+                best_dist = dist_from_point
+                best_can_pass = can_pass
+        return best_lanelet
+
+    def get_lanelet_sequence(self, states):
+        # get the correspoding lanelets for a seqeunce of frames
+        lanelets = []
+        lanelet = None
+        for state in states:
+            lanelet = self.get_current_lanelet(state, lanelet)
+            lanelets.append(lanelet)
+        return lanelets
+
+    def can_pass(self, a, b):
+        # can we legally pass directly from lanelet a to b
+        return (a == b or LaneletHelpers.follows(b, a)
+                or self.traffic_rules.canChangeLane(a, b))
+
+    def lanelets_at(self, point):
         nearest_lanelets = geometry.findNearest(self.lanelet_map.laneletLayer, point, 1)
+        matching_lanelets = []
         for distance, lanelet in nearest_lanelets:
-            if lanelet.attributes['subtype'] == 'road':
-                return lanelet
+            if distance == 0 and self.traffic_rules.canPass(lanelet):
+                matching_lanelets.append(lanelet)
+        return matching_lanelets
 
     def lanelet_at(self, point):
-        nearest_lanelets = geometry.findNearest(self.lanelet_map.laneletLayer, point, 1)
-        for distance, lanelet in nearest_lanelets:
-            if lanelet.attributes['subtype'] == 'road':
-                return lanelet
+        lanelets = self.lanelets_at(point)
+        if len(lanelets) == 0:
+            return None
+        return lanelets[0]
 
     @staticmethod
     def in_correct_lane(route):
         path = route.shortestPath()
         return len(path) == len(path.getRemainingLane(path[0]))
 
-    @classmethod
-    def distance_to_goal(cls, state, goal, route):
+    @staticmethod
+    def path_to_goal_length(state, goal, route):
         path = route.shortestPath()
 
         end_point = BasicPoint2d(*goal)
         end_lanelet = path[-1]
-        end_lanelet_dist = cls.dist_along_lanelet(end_lanelet, end_point)
-        end_lanelet_length = geometry.length2d(end_lanelet)
+        end_lanelet_dist = LaneletHelpers.dist_along(end_lanelet, end_point)
 
         start_point = BasicPoint2d(state.x, state.y)
         start_lanelet = path[0]
-        start_lanelet_dist = cls.dist_along_lanelet(start_lanelet, start_point)
+        start_lanelet_dist = LaneletHelpers.dist_along(start_lanelet, start_point)
 
         dist = end_lanelet_dist - start_lanelet_dist
         if len(path) > 1:
-            dist += route.length2d() - end_lanelet_length
+            prev_lanelet = start_lanelet
+            for idx in range(len(path) - 1):
+                lanelet = path[idx]
+                lane_change = (prev_lanelet.leftBound == lanelet.rightBound
+                               or prev_lanelet.rightBound == lanelet.leftBound)
+                if not lane_change:
+                    dist += geometry.length2d(lanelet)
         return dist
-
-    @staticmethod
-    def dist_along_lanelet(lanelet, point):
-        centerline = geometry.to2D(lanelet.centerline)
-        return geometry.toArcCoordinates(centerline, point).length
 
 
 def main():
@@ -400,20 +459,25 @@ def main():
     agent = episode.agents[agent_id]
     frames = episode.frames[agent.initial_frame:agent.final_frame+1]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
+    lanelet_sequence = feature_extractor.get_lanelet_sequence(agent.state_history)
+    prev_ll = None
+    scenario.plot()
+    for idx, ll in enumerate(lanelet_sequence):
+        if ll != prev_ll:
+            prev_ll = ll
+            LaneletHelpers.plot(ll)
+    plt.show()
 
     for x in range(agent.num_frames):
         print('frame: {}'.format(x))
-        state = frames[x].agents[agent_id]
-        reachable_goals = feature_extractor.reachable_goals(state, scenario.config.goals)
+        reachable_goals = feature_extractor.reachable_goals(lanelet_sequence[x],
+                                                            scenario.config.goals)
         for goal_idx, route in reachable_goals.items():
 
             goal = scenario.config.goals[goal_idx]
             features = feature_extractor.extract(agent_id, frames[:x+1], goal, route)
             print('goal {}'.format(goal_idx))
             print(features)
-
-    scenario.plot()
-    plt.show()
 
 
 if __name__ == '__main__':
