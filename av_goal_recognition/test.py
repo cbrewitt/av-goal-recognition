@@ -2,13 +2,9 @@ import lanelet2
 from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d, BoundingBox2d
 import matplotlib.pyplot as plt
-import numpy as np
-import time
 
-from goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
-from lanelet_helpers import LaneletHelpers
-from shapely.geometry import Point
-
+from .goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
+from .lanelet_helpers import LaneletHelpers
 
 map_meta = ScenarioConfig.load('scenario_config/heckstrasse.json')
 origin = lanelet2.io.Origin(map_meta.lat_origin, map_meta.lon_origin)

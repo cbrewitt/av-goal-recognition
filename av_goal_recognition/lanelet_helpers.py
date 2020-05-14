@@ -60,4 +60,6 @@ class LaneletHelpers:
     def connected(cls, a, b):
         return cls.follows(a, b) or cls.follows(b, a) or cls.left_of(a, b) or cls.left_of(b, a)
 
-
+    @staticmethod
+    def dist_from_center(point, lanelet):
+        return geometry.toArcCoordinates(geometry.to2D(lanelet.centerline), point).distance

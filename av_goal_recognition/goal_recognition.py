@@ -1,15 +1,14 @@
 import numpy as np
 import json
 import imageio
-import cv2
 import matplotlib.pyplot as plt
 import lanelet2
-from lanelet2.core import LaneletMap, BasicPoint2d, BoundingBox2d
+from lanelet2.core import BasicPoint2d, BoundingBox2d
 from lanelet2 import geometry
 
-import map_vis_lanelet2
-from tracks_import import read_from_csv
-from lanelet_helpers import LaneletHelpers
+from av_goal_recognition import map_vis_lanelet2
+from av_goal_recognition.tracks_import import read_from_csv
+from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 
 class ScenarioConfig:
@@ -102,6 +101,11 @@ class Agent:
         self.initial_frame = metadata.initial_frame
         self.final_frame = metadata.final_frame
         self.num_frames = metadata.final_frame - metadata.initial_frame + 1
+
+    def plot_trajectory(self, *args, **kwargs):
+        x = [s.x for s in self.state_history]
+        y = [s.y for s in self.state_history]
+        plt.plot(x, y, *args, **kwargs)
 
 
 class AgentMetadata:
@@ -328,9 +332,10 @@ class FeatureExtractor:
         current_state = current_frame.agents[agent_id]
         state_history = [f.agents[agent_id] for f in frames]
         lanelet_sequence = self.get_lanelet_sequence(state_history)
+        current_lanelet = lanelet_sequence[-1]
 
         if route is None:
-            route = self.route_to_goal(lanelet_sequence[-1], goal)
+            route = self.route_to_goal(current_lanelet, goal)
         if route is None:
             raise ValueError('Unreachable goal')
 
@@ -338,11 +343,20 @@ class FeatureExtractor:
         acceleration = current_state.a_lon
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
+        angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
+        angle_to_goal = self.angle_to_goal(current_state, goal)
 
         return {'path_to_goal_length': path_to_goal_length,
                 'in_correct_lane': in_correct_lane,
                 'speed': speed,
-                'acceleration': acceleration}
+                'acceleration': acceleration,
+                'angle_in_lane': angle_in_lane,
+                'angle_to_goal': angle_to_goal}
+
+    def angle_in_lane(self, state, lanelet):
+        lane_heading = LaneletHelpers.heading_at(lanelet, state.point)
+        angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))
+        return angle_diff
 
     def reachable_goals(self, start_lanelet, goals):
         goals_and_routes = {}
@@ -374,10 +388,9 @@ class FeatureExtractor:
         best_angle_diff = None
         best_dist = None
         best_can_pass = False
-        for lanelet in nearby_lanelets:# temp
+        for lanelet in nearby_lanelets:
             dist_from_point = geometry.distance(lanelet, point)
-            lane_heading = LaneletHelpers.heading_at(lanelet, point)
-            angle_diff = abs(np.diff(np.unwrap([lane_heading, state.heading])))
+            angle_diff = abs(self.angle_in_lane(state, lanelet))
             can_pass = (False if previous_lanelet is None
                         else self.can_pass(previous_lanelet, lanelet))
             if (angle_diff < np.pi/2
@@ -449,36 +462,7 @@ class FeatureExtractor:
                     dist += geometry.length2d(lanelet)
         return dist
 
-
-def main():
-    scenario = Scenario.load('scenario_config/heckstrasse.json')
-    # extract features from agent 0
-
-    episode = scenario.episodes[0]
-    agent_id = 0
-    agent = episode.agents[agent_id]
-    frames = episode.frames[agent.initial_frame:agent.final_frame+1]
-    feature_extractor = FeatureExtractor(scenario.lanelet_map)
-    lanelet_sequence = feature_extractor.get_lanelet_sequence(agent.state_history)
-    prev_ll = None
-    scenario.plot()
-    for idx, ll in enumerate(lanelet_sequence):
-        if ll != prev_ll:
-            prev_ll = ll
-            LaneletHelpers.plot(ll)
-    plt.show()
-
-    for x in range(agent.num_frames):
-        print('frame: {}'.format(x))
-        reachable_goals = feature_extractor.reachable_goals(lanelet_sequence[x],
-                                                            scenario.config.goals)
-        for goal_idx, route in reachable_goals.items():
-
-            goal = scenario.config.goals[goal_idx]
-            features = feature_extractor.extract(agent_id, frames[:x+1], goal, route)
-            print('goal {}'.format(goal_idx))
-            print(features)
-
-
-if __name__ == '__main__':
-    main()
+    @staticmethod
+    def angle_to_goal(state, goal):
+        goal_heading = np.arctan2(goal[1] - state.y, goal[0] - state.x)
+        return np.diff(np.unwrap([goal_heading, state.heading]))
