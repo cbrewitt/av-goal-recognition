@@ -4,9 +4,9 @@
   "goals": [[17.40, -4.97],
             [75.18, -56.65],
             [62.47, -17.54]],
-  "lanelet_file": "../inD_LaneletMaps/heckstrasse.osm",
+  "lanelet_file": "../../inD_LaneletMaps/heckstrasse.osm",
   "data_format": "ind",
-  "data_root": "../inD-dataset/data/",
+  "data_root": "../../inD-dataset/data/",
   "background_image": "30_background.png",
   "background_px_to_meter": 0.097756245549074,
   "episodes": [

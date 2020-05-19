@@ -353,7 +353,8 @@ class FeatureExtractor:
                 'angle_in_lane': angle_in_lane,
                 'angle_to_goal': angle_to_goal}
 
-    def angle_in_lane(self, state, lanelet):
+    @staticmethod
+    def angle_in_lane(state, lanelet):
         lane_heading = LaneletHelpers.heading_at(lanelet, state.point)
         angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))
         return angle_diff

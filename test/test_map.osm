@@ -1,0 +1,51 @@
+<osm_xy>
+
+  <node id="1000" x="0" y="0" />
+  <node id="1001" x="0" y="1" />
+  <node id="1002" x="2" y="0" />
+  <node id="1003" x="2" y="1" />
+  <node id="1004" x="0" y="2" />
+  <node id="1005" x="2" y="2" />
+
+  <way id="2000">
+    <nd ref="1000" />
+    <nd ref="1001" />
+    <tag k="subtype" v="dashed" />
+    <tag k="type" v="line_thin" />
+  </way>
+
+  <way id="2001">
+    <nd ref="1002" />
+    <nd ref="1004" />
+    <tag k="subtype" v="dashed" />
+    <tag k="type" v="line_thin" />
+  </way>
+
+  <way id="2002">
+    <nd ref="1004" />
+    <nd ref="1005" />
+    <tag k="subtype" v="dashed" />
+    <tag k="type" v="line_thin" />
+  </way>
+
+  <relation id="1">
+    <member ref="2001" role="left" type="way" />
+    <member ref="2000" role="right" type="way" />
+    <tag k="location" v="urban" />
+    <tag k="one_way" v="yes" />
+    <tag k="region" v="de" />
+    <tag k="subtype" v="road" />
+    <tag k="type" v="lanelet" />
+  </relation>
+
+  <relation id="2">
+    <member ref="2002" role="left" type="way" />
+    <member ref="2001" role="right" type="way" />
+    <tag k="location" v="urban" />
+    <tag k="one_way" v="yes" />
+    <tag k="region" v="de" />
+    <tag k="subtype" v="road" />
+    <tag k="type" v="lanelet" />
+  </relation>
+
+</osm_xy>

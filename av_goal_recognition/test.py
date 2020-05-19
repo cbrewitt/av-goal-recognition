@@ -3,15 +3,15 @@ from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d, BoundingBox2d
 import matplotlib.pyplot as plt
 
-from .goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
-from .lanelet_helpers import LaneletHelpers
+from av_goal_recognition.goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
+from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
-map_meta = ScenarioConfig.load('scenario_config/heckstrasse.json')
+map_meta = ScenarioConfig.load('../scenario_config/heckstrasse.json')
 origin = lanelet2.io.Origin(map_meta.lat_origin, map_meta.lon_origin)
 projector = lanelet2.projection.UtmProjector(origin)
 lanelet_map, _ = lanelet2.io.loadRobust(map_meta.lanelet_file, projector)
 
-scenario = Scenario.load('scenario_config/heckstrasse.json')
+scenario = Scenario.load('../scenario_config/heckstrasse.json')
 scenario.plot()
 feature_extractor = FeatureExtractor(lanelet_map)
 
