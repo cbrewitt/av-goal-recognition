@@ -390,21 +390,21 @@ class FeatureExtractor:
         best_dist = None
         best_can_pass = False
         for lanelet in nearby_lanelets:
-            dist_from_point = geometry.distance(lanelet, point)
-            angle_diff = abs(self.angle_in_lane(state, lanelet))
-            can_pass = (False if previous_lanelet is None
-                        else self.can_pass(previous_lanelet, lanelet))
-            if (angle_diff < np.pi/2
-                    and self.traffic_rules.canPass(lanelet)
-                    and (best_lanelet is None
-                         or (can_pass and not best_can_pass)
-                         or (dist_from_point < best_dist
-                             or (best_dist == dist_from_point
-                                 and angle_diff < best_angle_diff)))):
-                best_lanelet = lanelet
-                best_angle_diff = angle_diff
-                best_dist = dist_from_point
-                best_can_pass = can_pass
+            if self.traffic_rules.canPass(lanelet):
+                dist_from_point = geometry.distance(lanelet, point)
+                angle_diff = abs(self.angle_in_lane(state, lanelet))
+                can_pass = (False if previous_lanelet is None
+                            else self.can_pass(previous_lanelet, lanelet))
+                if (angle_diff < np.pi/2
+                        and (best_lanelet is None
+                             or (can_pass and not best_can_pass)
+                             or (dist_from_point < best_dist
+                                 or (best_dist == dist_from_point
+                                     and angle_diff < best_angle_diff)))):
+                    best_lanelet = lanelet
+                    best_angle_diff = angle_diff
+                    best_dist = dist_from_point
+                    best_can_pass = can_pass
         return best_lanelet
 
     def get_lanelet_sequence(self, states):

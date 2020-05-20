@@ -2,16 +2,16 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .goal_recognition import Scenario, FeatureExtractor
-from .lanelet_helpers import LaneletHelpers
+from av_goal_recognition.goal_recognition import Scenario, FeatureExtractor
+from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 
 def main():
-    scenario = Scenario.load('scenario_config/heckstrasse.json')
+    scenario = Scenario.load('../scenario_config/heckstrasse.json')
     # extract features from agent 0
 
     episode = scenario.episodes[0]
-    agent_id = 0
+    agent_id = 190
     agent = episode.agents[agent_id]
     frames = episode.frames[agent.initial_frame:agent.final_frame+1]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
