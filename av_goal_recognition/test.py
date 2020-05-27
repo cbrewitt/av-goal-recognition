@@ -17,7 +17,7 @@ feature_extractor = FeatureExtractor(lanelet_map)
 
 #start = BasicPoint2d(12.7, -5.6)
 #start = BasicPoint2d(72.0, -53.4)
-start = BasicPoint2d(11.6, -7.9)
+start = BasicPoint2d(27.2, -19.6)
 plt.plot([start.x], [start.y], 'yo')
 
 #start_lanelet = findNearest(lanelet_map.laneletLayer, start, 1)[2][1]
@@ -47,8 +47,8 @@ traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.G
 graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
 
 #print(graph.reachableSet(start_lanelet, 100.0, 0))
-route = graph.getRoute(start_lanelet, end_lanelet)
-path = route.shortestPath()
+# route = graph.getRoute(start_lanelet, end_lanelet)
+# path = route.shortestPath()
 
 #LaneletHelpers.plot_path(path)
 

@@ -24,8 +24,7 @@ def test_angle_in_lane_curved():
 
 def test_reachable_goals():
     feature_extractor = get_feature_extractor()
-    llmap = get_test_map()
     goals = [(3.5, 0.5), (3.0, 2.5)]
-    start_lanelet = llmap.laneletLayer.get(1)
+    start_lanelet = feature_extractor.lanelet_map.laneletLayer.get(1)
     reachable_goals = feature_extractor.reachable_goals(start_lanelet, goals)
     assert list(reachable_goals.keys()) == [0, 1]

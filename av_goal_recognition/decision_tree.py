@@ -42,12 +42,3 @@ class ThresholdDecision(Decision):
 
     def rule(self, features):
         return features[self.feature_name] > self.threshold
-
-
-tree = Node(0.5)
-tree.decision = ThresholdDecision(0, 'angle_to_goal', Node(0.5), Node(0.5))
-tree.decision.true_child.decision = BinaryDecision('in_correct_lane', Node(0.9), Node(0.1))
-tree.decision.false_child.decision = ThresholdDecision(30, 'path_to_goal_length', Node(0.5), Node(0.5))
-tree.decision.false_child.decision.false_child.decision = ThresholdDecision(10, 'speed', Node(0.2), Node(0.8))
-
-print(tree.traverse({'angle_to_goal': -1, 'in_correct_lane': True, 'path_to_goal_length': 20, 'speed': 15}))

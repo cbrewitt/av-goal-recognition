@@ -11,7 +11,7 @@ def main():
     # extract features from agent 0
 
     episode = scenario.episodes[0]
-    agent_id = 190
+    agent_id = 73
     agent = episode.agents[agent_id]
     frames = episode.frames[agent.initial_frame:agent.final_frame+1]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
