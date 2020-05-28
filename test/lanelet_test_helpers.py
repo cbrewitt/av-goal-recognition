@@ -67,8 +67,6 @@ def get_test_map():
     lanelet_map.add(ll_4)
     lanelet_map.add(ll_5)
 
-    # projector = UtmProjector(lanelet2.io.Origin(49, 8.4))
-    # lanelet_map, errors = lanelet2.io.loadRobust('test_map_1.osm', projector)
     return lanelet_map
 
 
