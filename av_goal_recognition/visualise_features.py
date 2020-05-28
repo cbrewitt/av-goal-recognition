@@ -2,7 +2,8 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
-from av_goal_recognition.goal_recognition import Scenario, FeatureExtractor
+from av_goal_recognition.goal_recognition import Scenario
+from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 
