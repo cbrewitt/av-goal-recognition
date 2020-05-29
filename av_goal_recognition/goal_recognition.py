@@ -77,6 +77,12 @@ class ScenarioConfig:
         """float: Pixels per meter in background image"""
         return self.config_dict.get('background_px_to_meter')
 
+    @property
+    def reachable_pairs(self):
+        """list: Pairs of points, where the second point should be reachable from the first
+           To can be used for validating maps"""
+        return self.config_dict.get('reachable_pairs')
+
 
 class EpisodeConfig:
     """Metadata about an episode"""
@@ -243,7 +249,6 @@ class Scenario:
     def __init__(self, config):
         self.config = config
         self.lanelet_map = self.load_lanelet_map()
-        self.episodes = self.load_episodes()
 
     def load_lanelet_map(self):
         origin = lanelet2.io.Origin(self.config.lat_origin, self.config.lon_origin)
