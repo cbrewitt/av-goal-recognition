@@ -2,7 +2,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 
-from av_goal_recognition.goal_recognition import Scenario
+from av_goal_recognition.scenario import Scenario
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
@@ -12,7 +12,7 @@ def main():
     # extract features from agent 0
     episodes = scenario.load_episodes()
     episode = episodes[0]
-    agent_id = 73
+    agent_id = 27
     agent = episode.agents[agent_id]
     frames = episode.frames[agent.initial_frame:agent.final_frame+1]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)

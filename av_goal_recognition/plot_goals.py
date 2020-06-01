@@ -6,8 +6,9 @@ import lanelet2
 
 import imageio
 import map_vis_lanelet2
-from tracks_import import read_from_csv
-from goal_recognition import ScenarioConfig, GoalDetector
+from av_goal_recognition.tracks_import import read_from_csv
+from av_goal_recognition.scenario import ScenarioConfig
+from av_goal_recognition.feature_extraction import GoalDetector
 
 
 parser = argparse.ArgumentParser(description='create a plot of lanelets and goals')

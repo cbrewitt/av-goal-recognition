@@ -3,7 +3,7 @@ from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d, BoundingBox2d
 import matplotlib.pyplot as plt
 
-from av_goal_recognition.goal_recognition import ScenarioConfig, Scenario, FeatureExtractor
+from av_goal_recognition.scenario import ScenarioConfig, Scenario, FeatureExtractor
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 map_meta = ScenarioConfig.load('../scenario_config/heckstrasse.json')

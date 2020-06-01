@@ -99,9 +99,10 @@ class FeatureExtractor:
                 if (angle_diff < np.pi/2
                         and (best_lanelet is None
                              or (can_pass and not best_can_pass)
-                             or (dist_from_point < best_dist
+                             or ((can_pass or not best_can_pass)
+                                 and (dist_from_point < best_dist
                                  or (best_dist == dist_from_point
-                                     and angle_diff < best_angle_diff)))):
+                                     and angle_diff < best_angle_diff))))):
                     best_lanelet = lanelet
                     best_angle_diff = angle_diff
                     best_dist = dist_from_point
@@ -168,3 +169,26 @@ class FeatureExtractor:
     def angle_to_goal(state, goal):
         goal_heading = np.arctan2(goal[1] - state.y, goal[0] - state.x)
         return np.diff(np.unwrap([goal_heading, state.heading]))
+
+
+class GoalDetector:
+    """ Detects the goals of agents based on their trajectories"""
+
+    def __init__(self, dist_threshold=1.5):
+        self.dist_threshold = dist_threshold
+
+    def get_agents_goals_ind(self, tracks, static_info, meta_info, map_meta, agent_class='car'):
+        goal_locations = map_meta.goals
+        agent_goals = {}
+        for track_idx in range(len(static_info)):
+            if static_info[track_idx]['class'] == agent_class:
+                track = tracks[track_idx]
+                agent_goals[track_idx] = []
+
+                for i in range(static_info[track_idx]['numFrames']):
+                    point = np.array([track['xCenter'][i], track['yCenter'][i]])
+                    for goal_idx, loc in enumerate(goal_locations):
+                        dist = np.linalg.norm(point - loc)
+                        if dist < self.dist_threshold and loc not in agent_goals[track_idx]:
+                            agent_goals[track_idx].append(loc)
+        return agent_goals

@@ -287,27 +287,7 @@ class Scenario:
             axes.annotate(label, goal_locations[i], color='white')
 
 
-class GoalDetector:
-    """ Detects the goals of agents based on their trajectories"""
 
-    def __init__(self, dist_threshold=1.5):
-        self.dist_threshold = dist_threshold
-
-    def get_agents_goals_ind(self, tracks, static_info, meta_info, map_meta, agent_class='car'):
-        goal_locations = map_meta.goals
-        agent_goals = {}
-        for track_idx in range(len(static_info)):
-            if static_info[track_idx]['class'] == agent_class:
-                track = tracks[track_idx]
-                agent_goals[track_idx] = []
-
-                for i in range(static_info[track_idx]['numFrames']):
-                    point = np.array([track['xCenter'][i], track['yCenter'][i]])
-                    for goal_idx, loc in enumerate(goal_locations):
-                        dist = np.linalg.norm(point - loc)
-                        if dist < self.dist_threshold and loc not in agent_goals[track_idx]:
-                            agent_goals[track_idx].append(loc)
-        return agent_goals
 
 
 

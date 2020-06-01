@@ -2,7 +2,7 @@ from lanelet2.core import BasicPoint2d
 import matplotlib.pyplot as plt
 
 from av_goal_recognition.feature_extraction import FeatureExtractor
-from av_goal_recognition.goal_recognition import Scenario
+from av_goal_recognition.scenario import Scenario
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 
@@ -14,7 +14,7 @@ def validate_scenario(scenario: Scenario):
         start_point = BasicPoint2d(*start)
         start_lanelet = feature_extractor.lanelet_at(start_point)
         route = feature_extractor.route_to_goal(start_lanelet, end)
-        if route is None:
+        if True:#route is None:
             print('Failed to reach {} from {}'.format(start, end))
             debug_plot(start_lanelet, feature_extractor, scenario)
             import pdb; pdb.set_trace()
