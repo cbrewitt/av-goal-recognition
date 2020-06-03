@@ -12,7 +12,7 @@ def main():
     # extract features from agent 0
     episodes = scenario.load_episodes()
     episode = episodes[0]
-    agent_id = 27
+    agent_id = 34
     agent = episode.agents[agent_id]
     frames = episode.frames[agent.initial_frame:agent.final_frame+1]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
@@ -30,7 +30,7 @@ def main():
     all_features = defaultdict(dict)
 
     for x in range(agent.num_frames):
-        print('frame: {}'.format(x))
+        print('frame: {}'.format(frames[x].frame_id))
         reachable_goals = feature_extractor.reachable_goals(lanelet_sequence[x],
                                                             scenario.config.goals)
         for goal_idx, route in reachable_goals.items():
