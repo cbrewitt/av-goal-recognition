@@ -47,7 +47,11 @@ scenario_trees = {'heckstrasse':
                                          ))
                                     ))
                                )),
-                          Node(0.5))),
+                          Node(0.5, ThresholdDecision(10, 'speed',
+                               Node(0.2),
+                               Node(0.8)
+                               ))
+                          )),
 
                   2: Node(0.5, ThresholdDecision(0, 'angle_to_goal',
                           Node(0.5, ThresholdDecision(30, 'path_to_goal_length',

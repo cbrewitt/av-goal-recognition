@@ -4,9 +4,17 @@ from lanelet2.core import BasicPoint2d, BoundingBox2d
 from lanelet2 import geometry
 
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
+from av_goal_recognition.scenario import Frame
 
 
 class FeatureExtractor:
+
+    feature_names = ['path_to_goal_length',
+                     'in_correct_lane',
+                     'speed',
+                     'acceleration',
+                     'angle_in_lane',
+                     'angle_to_goal']
 
     def __init__(self, lanelet_map):
         self.lanelet_map = lanelet_map
@@ -57,7 +65,7 @@ class FeatureExtractor:
     @staticmethod
     def angle_in_lane(state, lanelet):
         lane_heading = LaneletHelpers.heading_at(lanelet, state.point)
-        angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))
+        angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))[0]
         return angle_diff
 
     def reachable_goals(self, start_lanelet, goals):
@@ -168,14 +176,27 @@ class FeatureExtractor:
     @staticmethod
     def angle_to_goal(state, goal):
         goal_heading = np.arctan2(goal[1] - state.y, goal[0] - state.x)
-        return np.diff(np.unwrap([goal_heading, state.heading]))
+        return np.diff(np.unwrap([goal_heading, state.heading]))[0]
 
 
 class GoalDetector:
     """ Detects the goals of agents based on their trajectories"""
 
-    def __init__(self, dist_threshold=1.5):
+    def __init__(self, possible_goals, dist_threshold=1.5):
         self.dist_threshold = dist_threshold
+        self.possible_goals = possible_goals
+
+    def detect_goals(self, frames):
+        goals = []
+        goal_frames = []
+        for frame in frames:
+            agent_point = np.array([frame.x, frame.y])
+            for goal_idx, goal_point in enumerate(self.possible_goals):
+                dist = np.linalg.norm(agent_point - goal_point)
+                if dist <= self.dist_threshold and goal_idx not in goals:
+                    goals.append(goal_idx)
+                    goal_frames.append(frame.frame_id)
+        return goals, goal_frames
 
     def get_agents_goals_ind(self, tracks, static_info, meta_info, map_meta, agent_class='car'):
         goal_locations = map_meta.goals
