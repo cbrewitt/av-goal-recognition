@@ -9,6 +9,8 @@ from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 def main():
     scenario = Scenario.load('../scenario_config/heckstrasse.json')
+    scenario.plot()
+    plt.show()
     # extract features from agent 0
     episodes = scenario.load_episodes()
     episode = episodes[0]

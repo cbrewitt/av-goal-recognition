@@ -1,4 +1,4 @@
-path_to_goal_length,in_correct_lane,speed,acceleration,angle_in_lane,angle_to_goal,agent_id,possisble_goal,true_goal,frame_id,fraction_oberserved
+path_to_goal_length,in_correct_lane,speed,acceleration,angle_in_lane,angle_to_goal,agent_id,possible_goal,true_goal,frame_id,fraction_oberserved
 79.18543326765163,False,10.69027,0.10642,0.012533948951110485,0.077017813327386,0,1,2,0,0.0
 56.146673671905276,True,10.69027,0.10642,0.012533948951110485,-0.3856986637963571,0,2,2,0,0.0
 68.70450923693132,False,9.53912,-2.21521,0.03787744068455601,0.08936880750287057,0,1,2,25,0.15625

@@ -68,7 +68,7 @@ for agent_id, trajectory in trimmed_trajectories.items():
             # TODO add to dataframe: agent_id, time, fraction of traj, features, true_goal
             sample = features.copy()
             sample['agent_id'] = agent_id
-            sample['possisble_goal'] = goal_idx
+            sample['possible_goal'] = goal_idx
             sample['true_goal'] = goals[agent_id]
             sample['frame_id'] = state.frame_id
             sample['fraction_oberserved'] = idx / (len(trajectory) - 1)
