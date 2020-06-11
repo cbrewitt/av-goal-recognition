@@ -130,3 +130,8 @@ dmypy.json
 
 # Pycharm project files
 .idea/
+
+
+# project data folders
+data/
+images/
