@@ -2,7 +2,7 @@ import pathlib
 
 
 def get_base_dir():
-    return pathlib.Path(__file__).parent.parent.absolute()
+    return str(pathlib.Path(__file__).parent.parent.absolute())
 
 
 def get_data_dir():

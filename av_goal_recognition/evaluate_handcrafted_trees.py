@@ -2,10 +2,11 @@ import pandas as pd
 
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.handcrafted_trees import scenario_trees
+from av_goal_recognition.base import get_data_dir
 
 trees = scenario_trees['heckstrasse']
 
-training_set = pd.read_csv('heckstrasse_e0_train.csv')
+training_set = pd.read_csv(get_data_dir() + 'heckstrasse_e0_train.csv')
 print('training samples: {}'.format(training_set.shape[0]))
 
 # compute goal priors
@@ -45,11 +46,8 @@ for index, row in unique_training_samples.iterrows():
 
     goals['tree_prob'] = goals['tree_likelihood'] * goals['prior']
     goals['tree_prob'] = goals['tree_prob'] / goals['tree_prob'].sum()
-    try:
-        idx = goals['tree_prob'].idxmax()
-        tree_prediction = goals['possible_goal'].loc[idx]
-    except IndexError:
-        import pdb; pdb.set_trace()
+    idx = goals['tree_prob'].idxmax()
+    tree_prediction = goals['possible_goal'].loc[idx]
     prior_prediction = goals['possible_goal'].loc[goals['prior'].idxmax()]
     tree_predictions.append(tree_prediction)
     prior_predictions.append(prior_prediction)
@@ -73,7 +71,7 @@ print('correct prediction from prior: {}/{} = {}'.format(
       prior_correct, total_samples, prior_correct / total_samples))
 
 
-# TODO plot evolution of goal prob for agent 0
-agent_0_samples = unique_training_samples.loc[unique_training_samples.agent_id == 0]
+# TODO plot evolution of goal prob for agents over time
+agent_0_samples = unique_training_samples.loc[unique_training_samples.agent_id == 8]
 print(agent_0_samples)
 
