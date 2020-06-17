@@ -72,7 +72,9 @@ for episode_idx, episode in enumerate(episodes):
 
         # iterate through "samples_per_trajectory" points
         if len(reachable_goals_list) >= samples_per_trajectory:
-            for idx in range(0, len(reachable_goals_list), len(reachable_goals_list) // samples_per_trajectory):
+            step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
+            max_idx = step_size * samples_per_trajectory
+            for idx in range(0, max_idx + 1, step_size):
                 reachable_goals = reachable_goals_list[idx]
                 state = trajectory[idx]
                 frames = episode.frames[trajectory[0].frame_id:state.frame_id + 1]
@@ -87,7 +89,10 @@ for episode_idx, episode in enumerate(episodes):
                     sample['possible_goal'] = goal_idx
                     sample['true_goal'] = goals[agent_id]
                     sample['frame_id'] = state.frame_id
-                    sample['fraction_oberserved'] = idx / (len(reachable_goals) - 1)
+                    sample['fraction_oberserved'] = idx / max_idx
+
+                    if sample['fraction_oberserved'] > 1:
+                        import pdb; pdb.set_trace()
 
                     if trajectory[-1].frame_id <= training_set_cutoff_frame:
                         training_samples_list.append(sample)
