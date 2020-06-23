@@ -17,11 +17,11 @@ episodes = scenario.load_episodes()
 
 feature_extractor = FeatureExtractor(scenario.lanelet_map)
 
-training_samples_list = []
-test_samples_list = []
-
-
 for episode_idx, episode in enumerate(episodes):
+
+    training_samples_list = []
+    test_samples_list = []
+
     print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
     num_frames = len(episode.frames)
 
@@ -34,7 +34,6 @@ for episode_idx, episode in enumerate(episodes):
     #
     goal_detector = GoalDetector(scenario.config.goals)
     for agent_id, agent in episode.agents.items():
-
         agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
         if len(agent_goals) > 0:
             first_goal_frame_idx = goal_frames[0] - agent.initial_frame
@@ -89,10 +88,7 @@ for episode_idx, episode in enumerate(episodes):
                     sample['possible_goal'] = goal_idx
                     sample['true_goal'] = goals[agent_id]
                     sample['frame_id'] = state.frame_id
-                    sample['fraction_oberserved'] = idx / max_idx
-
-                    if sample['fraction_oberserved'] > 1:
-                        import pdb; pdb.set_trace()
+                    sample['fraction_observed'] = idx / max_idx
 
                     if trajectory[-1].frame_id <= training_set_cutoff_frame:
                         training_samples_list.append(sample)

@@ -25,8 +25,8 @@ scenario_trees = {'heckstrasse':
                                     ))
                                )),
                           Node(0.5, ThresholdDecision(10, 'speed',
-                               Node(0.2),
-                               Node(0.8)
+                               Node(0.8),
+                               Node(0.2)
                                ))
                           )),
 
