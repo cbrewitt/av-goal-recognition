@@ -117,6 +117,16 @@ class FeatureExtractor:
                     best_can_pass = can_pass
         return best_lanelet
 
+    @staticmethod
+    def get_vehicles_in_front(route, frame):
+        path = route.shortestPath()
+        agents = []
+        for agent_id, agent in frame.agents.items():
+            for lanelet in path:
+                if geometry.inside(lanelet, agent.point):
+                    agents.append(agent_id)
+        return agents
+
     def get_lanelet_sequence(self, states):
         # get the correspoding lanelets for a seqeunce of frames
         lanelets = []

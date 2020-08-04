@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.handcrafted_trees import scenario_trees
@@ -87,12 +88,20 @@ print('correct prediction from prior: {}/{} = {}'.format(
 
 # plot at different fractions observed
 print()
-print(unique_training_samples[
+results_over_fraction_observed = unique_training_samples[
           ['fraction_observed', 'tree_correct', 'prior_correct']].groupby(
-    'fraction_observed').mean())
+            'fraction_observed').mean()
+print(results_over_fraction_observed)
+results_over_fraction_observed.rename(columns={'tree_correct': 'decision tree',
+                                               'prior_correct': 'prior only'}).plot()
+plt.ylim([0, 1])
+plt.xlabel('fraction of trajectory observed')
+#plt.grid('on')
+plt.title('Model comparison')
+plt.ylabel('Accuracy')
+plt.show()
 
 # find examples where prediction became worse over time
-
 for agent_id in unique_training_samples.agent_id.unique():
     agent_samples = unique_training_samples[unique_training_samples.agent_id == agent_id]
     prev_correct = False
@@ -100,3 +109,4 @@ for agent_id in unique_training_samples.agent_id.unique():
         if row['tree_correct'] and not prev_correct and row['fraction_observed'] == 0.2:
             print(row)
         prev_correct = row['tree_correct']
+

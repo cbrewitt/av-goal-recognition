@@ -3,7 +3,8 @@ from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d, BoundingBox2d
 import matplotlib.pyplot as plt
 
-from av_goal_recognition.scenario import ScenarioConfig, Scenario, FeatureExtractor
+from av_goal_recognition.scenario import ScenarioConfig, Scenario
+from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
 
 map_meta = ScenarioConfig.load('../scenario_config/heckstrasse.json')
@@ -14,7 +15,7 @@ lanelet_map, _ = lanelet2.io.loadRobust(map_meta.lanelet_file, projector)
 scenario = Scenario.load('../scenario_config/heckstrasse.json')
 scenario.plot()
 feature_extractor = FeatureExtractor(lanelet_map)
-
+episodes = scenario.load_episodes()
 #start = BasicPoint2d(12.7, -5.6)
 #start = BasicPoint2d(72.0, -53.4)
 start = BasicPoint2d(27.2, -19.6)
@@ -32,7 +33,7 @@ nearby_lanelets = lanelet_map.laneletLayer.search(bounding_box)
 lanelets_distance = [geometry.distance(l, start) for l in nearby_lanelets]
 dist_along = [LaneletHelpers.dist_along(l, start) for l in nearby_lanelets]
 
-state = scenario.episodes[0].agents[0].state_history[94]
+state = episodes[0].agents[0].state_history[94]
 current_lanelet = feature_extractor.get_current_lanelet(state)
 LaneletHelpers.plot(current_lanelet)
 

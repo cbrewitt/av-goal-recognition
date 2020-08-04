@@ -3,7 +3,7 @@ from collections import Counter
 import numpy as np
 import pytest
 from lanelet2.core import LaneletMap, Lanelet, getId, LineString3d, Point3d, Point2d, BasicPoint2d
-from av_goal_recognition.scenario import AgentState
+from av_goal_recognition.scenario import AgentState, Frame
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from test.lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
 
@@ -148,3 +148,17 @@ def test_angle_to_goal_angled():
     state = AgentState(0, 2.5, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     goal = (3.5, 0.5)
     assert FeatureExtractor.angle_to_goal(state, goal) == pytest.approx(np.pi/4)
+
+
+def test_get_vehicles_in_front():
+    feature_extractor = get_feature_extractor()
+    start_lanelet = feature_extractor.lanelet_map.laneletLayer.get(1)
+    goal = (3.5, 0.5)
+    route = feature_extractor.route_to_goal(start_lanelet, goal)
+
+    frame = Frame(0)
+    frame.add_agent_state(0, AgentState(0, 2.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    frame.add_agent_state(1, AgentState(0, 3.0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    frame.add_agent_state(2, AgentState(0, 3.0, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    vehicles = FeatureExtractor.get_vehicles_in_front(route, frame)
+    assert set(vehicles) == {0, 1}
