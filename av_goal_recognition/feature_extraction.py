@@ -160,13 +160,31 @@ class FeatureExtractor:
         path = route.shortestPath()
         return len(path) == len(path.getRemainingLane(path[0]))
 
-    @staticmethod
-    def path_to_goal_length(state, goal, route):
-        path = route.shortestPath()
-
+    @classmethod
+    def path_to_goal_length(cls, state, goal, route):
         end_point = BasicPoint2d(*goal)
+        return cls.path_to_point_length(state, end_point, route)
+
+    @classmethod
+    def vehicle_in_front(cls, state, route, frame):
+        vehicles_in_front = cls.get_vehicles_in_front(route, frame)
+        min_dist = np.inf
+        vehicle_in_front = None
+
+        # find vehicle in front with closest distance
+        for agent_id in vehicles_in_front:
+            dist = geometry.distance(frame.agents[agent_id].point, state.point)
+            if dist < min_dist:
+                vehicle_in_front = agent_id
+                min_dist = dist
+
+        return vehicle_in_front, min_dist
+
+    @staticmethod
+    def path_to_point_length(state, point, route):
+        path = route.shortestPath()
         end_lanelet = path[-1]
-        end_lanelet_dist = LaneletHelpers.dist_along(end_lanelet, end_point)
+        end_lanelet_dist = LaneletHelpers.dist_along(end_lanelet, point)
 
         start_point = BasicPoint2d(state.x, state.y)
         start_lanelet = path[0]
