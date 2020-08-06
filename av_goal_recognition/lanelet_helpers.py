@@ -1,5 +1,6 @@
 from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d
+from shapely.geometry import Polygon
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -64,3 +65,16 @@ class LaneletHelpers:
     @staticmethod
     def dist_from_center(point, lanelet):
         return geometry.toArcCoordinates(geometry.to2D(lanelet.centerline), point).distance
+
+    @staticmethod
+    def shapely_polygon(lanelet):
+        linestrings = lanelet.polygon2d().lineStrings()
+        points = [(p.x, p.y) for ls in linestrings for p in ls]
+        return Polygon(points)
+
+    @classmethod
+    def overlap_area(cls, l1, l2):
+        p1 = cls.shapely_polygon(l1)
+        p2 = cls.shapely_polygon(l2)
+        return p1.intersection(p2).area
+

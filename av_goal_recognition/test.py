@@ -35,12 +35,15 @@ dist_along = [LaneletHelpers.dist_along(l, start) for l in nearby_lanelets]
 
 state = episodes[0].agents[0].state_history[94]
 current_lanelet = feature_extractor.get_current_lanelet(state)
-LaneletHelpers.plot(current_lanelet)
+
+print(start_lanelet)
+goal = BasicPoint2d(*map_meta.goals[2])
+# end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
+end = BasicPoint2d(64.0, -17.0)
+end_lanelet = lanelet_map.laneletLayer.nearest(end, 1)[0]
 
 LaneletHelpers.plot(start_lanelet)
-print(start_lanelet)
-goal = BasicPoint2d(*map_meta.goals[0])
-end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
+LaneletHelpers.plot(end_lanelet)
 
 # try routing
 traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
@@ -48,13 +51,13 @@ traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.G
 graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
 
 #print(graph.reachableSet(start_lanelet, 100.0, 0))
-# route = graph.getRoute(start_lanelet, end_lanelet)
-# path = route.shortestPath()
+route = graph.getRoute(start_lanelet, end_lanelet)
+path = route.shortestPath()
 
 #LaneletHelpers.plot_path(path)
 
-# for ll in graph.reachableSet(start_lanelet, 100.0, 0):
-#     plot_lanelet(ll)
+for ll in feature_extractor.lanelets_to_cross(route):
+    LaneletHelpers.plot(ll)
 
 # for l in lanelet_map.laneletLayer:
 #     if len(l.polygon2d()) > 0:

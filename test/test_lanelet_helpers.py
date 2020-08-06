@@ -5,6 +5,8 @@ from av_goal_recognition.lanelet_helpers import LaneletHelpers
 from lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_following_lanelets, \
     get_adjacent_lanelets
 
+from test.lanelet_test_helpers import get_test_map
+
 
 def test_dist_along():
     lanelet = get_test_lanelet_straight()
@@ -54,3 +56,19 @@ def test_left_of_true():
 def test_left_of_false():
     left_lanelet, right_lanelet = get_adjacent_lanelets()
     assert not LaneletHelpers.left_of(right_lanelet, left_lanelet)
+
+
+def test_overlap_area_no_overlap():
+    map = get_test_map()
+    l1 = map.laneletLayer.get(1)
+    l2 = map.laneletLayer.get(2)
+    l4 = map.laneletLayer.get(4)
+    assert LaneletHelpers.overlap_area(l1, l2) == 0
+    assert LaneletHelpers.overlap_area(l1, l4) == 0
+
+
+def test_overlap_area_overlap():
+    map = get_test_map()
+    l4 = map.laneletLayer.get(4)
+    l5 = map.laneletLayer.get(5)
+    assert LaneletHelpers.overlap_area(l4, l5) == 0.5

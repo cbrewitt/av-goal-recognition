@@ -206,6 +206,31 @@ class FeatureExtractor:
         goal_heading = np.arctan2(goal[1] - state.y, goal[0] - state.x)
         return np.diff(np.unwrap([goal_heading, state.heading]))[0]
 
+    def lanelets_to_cross(self, route):
+        # get higher priority lanelets to cross
+        # TODO: may need testing on new scenarios (other than heckstrasse)
+        path = route.shortestPath()
+        lanelets_to_cross = []
+
+        for lanelet in self.lanelet_map.laneletLayer:
+            if self.traffic_rules.canPass(lanelet):
+                left_virtual = lanelet.leftBound.attributes['type'] == 'virtual'
+                right_virtual = lanelet.rightBound.attributes['type'] == 'virtual'
+                if not (left_virtual and right_virtual):
+                    for path_lanelet in path:
+                        # check if our midline intersects non-virtual lanelet edge
+                        path_centerline = geometry.to2D(path_lanelet.centerline)
+                        right_bound = geometry.to2D(lanelet.rightBound)
+                        left_bound = geometry.to2D(lanelet.leftBound)
+                        left_intersects = (not left_virtual and
+                                           geometry.intersects2d(path_centerline, left_bound))
+                        right_intersects = (not right_virtual and
+                                            geometry.intersects2d(path_centerline, right_bound))
+                        if path_lanelet != lanelet and (left_intersects or right_intersects):
+                            lanelets_to_cross.append(lanelet)
+                            break
+        return lanelets_to_cross
+
 
 class GoalDetector:
     """ Detects the goals of agents based on their trajectories"""
