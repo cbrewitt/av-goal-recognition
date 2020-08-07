@@ -1,6 +1,8 @@
+import shapely
 from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d
 from shapely.geometry import Polygon
+from shapely.errors import TopologicalError
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -76,5 +78,8 @@ class LaneletHelpers:
     def overlap_area(cls, l1, l2):
         p1 = cls.shapely_polygon(l1)
         p2 = cls.shapely_polygon(l2)
-        return p1.intersection(p2).area
+        try:
+            return p1.intersection(p2).area
+        except TopologicalError:
+            return 0.0
 

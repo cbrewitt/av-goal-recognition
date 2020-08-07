@@ -212,24 +212,52 @@ class FeatureExtractor:
         path = route.shortestPath()
         lanelets_to_cross = []
 
+        crossed_line = False
+        for path_lanelet in path:
+
+            if not crossed_line:
+                crossed_line_lanelet = self.lanelet_crosses_line(path_lanelet)
+                if crossed_line_lanelet is not None:
+                    lanelets_to_cross.append(crossed_line_lanelet)
+                    crossed_line = True
+
+            if crossed_line:
+                # check if merged
+                if len(self.routing_graph.previous(path_lanelet)) > 1:
+                    crossed_line = False
+                else:
+                    for lanelet in self.lanelet_map.laneletLayer:
+                        if self.lanelet_crosses_lanelet(path_lanelet, lanelet):
+                            lanelets_to_cross.append(lanelet)
+
+        return lanelets_to_cross
+
+    def lanelet_crosses_lanelet(self, path_lanelet, lanelet):
+        # check if a lanelet crosses another lanelet
+        if path_lanelet != lanelet and self.traffic_rules.canPass(lanelet):
+            overlap_area = LaneletHelpers.overlap_area(path_lanelet, lanelet)
+            split = (self.routing_graph.previous(path_lanelet)
+                     == self.routing_graph.previous(lanelet))
+            if overlap_area > 1 and not split:
+                return True
+
+    def lanelet_crosses_line(self, path_lanelet):
+        # check if the midline of a lanelet crosses a road marking
         for lanelet in self.lanelet_map.laneletLayer:
-            if self.traffic_rules.canPass(lanelet):
+            if path_lanelet != lanelet and self.traffic_rules.canPass(lanelet):
                 left_virtual = lanelet.leftBound.attributes['type'] == 'virtual'
                 right_virtual = lanelet.rightBound.attributes['type'] == 'virtual'
-                if not (left_virtual and right_virtual):
-                    for path_lanelet in path:
-                        # check if our midline intersects non-virtual lanelet edge
-                        path_centerline = geometry.to2D(path_lanelet.centerline)
-                        right_bound = geometry.to2D(lanelet.rightBound)
-                        left_bound = geometry.to2D(lanelet.leftBound)
-                        left_intersects = (not left_virtual and
-                                           geometry.intersects2d(path_centerline, left_bound))
-                        right_intersects = (not right_virtual and
-                                            geometry.intersects2d(path_centerline, right_bound))
-                        if path_lanelet != lanelet and (left_intersects or right_intersects):
-                            lanelets_to_cross.append(lanelet)
-                            break
-        return lanelets_to_cross
+                path_centerline = geometry.to2D(path_lanelet.centerline)
+                right_bound = geometry.to2D(lanelet.rightBound)
+                left_bound = geometry.to2D(lanelet.leftBound)
+                left_intersects = (not left_virtual and
+                                   geometry.intersects2d(path_centerline, left_bound))
+                right_intersects = (not right_virtual and
+                                    geometry.intersects2d(path_centerline, right_bound))
+                if path_lanelet != lanelet and (left_intersects or right_intersects):
+                    return lanelet
+        else:
+            return None
 
 
 class GoalDetector:

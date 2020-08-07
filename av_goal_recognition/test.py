@@ -18,7 +18,8 @@ feature_extractor = FeatureExtractor(lanelet_map)
 episodes = scenario.load_episodes()
 #start = BasicPoint2d(12.7, -5.6)
 #start = BasicPoint2d(72.0, -53.4)
-start = BasicPoint2d(27.2, -19.6)
+#start = BasicPoint2d(27.2, -19.6)
+start = BasicPoint2d(67.28, -12.94)
 plt.plot([start.x], [start.y], 'yo')
 
 #start_lanelet = findNearest(lanelet_map.laneletLayer, start, 1)[2][1]
@@ -37,17 +38,17 @@ state = episodes[0].agents[0].state_history[94]
 current_lanelet = feature_extractor.get_current_lanelet(state)
 
 print(start_lanelet)
-goal = BasicPoint2d(*map_meta.goals[2])
-# end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
-end = BasicPoint2d(64.0, -17.0)
-end_lanelet = lanelet_map.laneletLayer.nearest(end, 1)[0]
+goal = BasicPoint2d(*map_meta.goals[1])
+end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
+#end = BasicPoint2d(64.0, -17.0)
+#end_lanelet = lanelet_map.laneletLayer.nearest(end, 1)[0]
 
 LaneletHelpers.plot(start_lanelet)
 LaneletHelpers.plot(end_lanelet)
 
 # try routing
 traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
-                                                  lanelet2.traffic_rules.Participants.Vehicle)
+                                              lanelet2.traffic_rules.Participants.Vehicle)
 graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
 
 #print(graph.reachableSet(start_lanelet, 100.0, 0))
