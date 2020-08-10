@@ -16,10 +16,10 @@ scenario = Scenario.load('../scenario_config/heckstrasse.json')
 scenario.plot()
 feature_extractor = FeatureExtractor(lanelet_map)
 episodes = scenario.load_episodes()
-#start = BasicPoint2d(12.7, -5.6)
+start = BasicPoint2d(12.7, -5.6)
 #start = BasicPoint2d(72.0, -53.4)
-#start = BasicPoint2d(27.2, -19.6)
-start = BasicPoint2d(67.28, -12.94)
+#start = BasicPoint2d(9.50, -6.20)
+#start = BasicPoint2d(67.28, -12.94)
 plt.plot([start.x], [start.y], 'yo')
 
 #start_lanelet = findNearest(lanelet_map.laneletLayer, start, 1)[2][1]
@@ -38,13 +38,13 @@ state = episodes[0].agents[0].state_history[94]
 current_lanelet = feature_extractor.get_current_lanelet(state)
 
 print(start_lanelet)
-goal = BasicPoint2d(*map_meta.goals[1])
-end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
+goal = map_meta.goals[1]
+#end_lanelet = lanelet_map.laneletLayer.nearest(goal, 1)[0]
 #end = BasicPoint2d(64.0, -17.0)
 #end_lanelet = lanelet_map.laneletLayer.nearest(end, 1)[0]
 
 LaneletHelpers.plot(start_lanelet)
-LaneletHelpers.plot(end_lanelet)
+#LaneletHelpers.plot(end_lanelet)
 
 # try routing
 traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.Germany,
@@ -52,13 +52,16 @@ traffic_rules = lanelet2.traffic_rules.create(lanelet2.traffic_rules.Locations.G
 graph = lanelet2.routing.RoutingGraph(lanelet_map, traffic_rules)
 
 #print(graph.reachableSet(start_lanelet, 100.0, 0))
-route = graph.getRoute(start_lanelet, end_lanelet)
+route = feature_extractor.route_to_goal(start_lanelet, goal)
 path = route.shortestPath()
 
 #LaneletHelpers.plot_path(path)
-
-for ll in feature_extractor.lanelets_to_cross(route):
+lanelets_to_cross, crossing_points = feature_extractor.lanelets_to_cross(route)
+for ll in lanelets_to_cross:
     LaneletHelpers.plot(ll)
+for p in crossing_points:
+    plt.plot([p.x], [p.y], 'go')
+
 
 # for l in lanelet_map.laneletLayer:
 #     if len(l.polygon2d()) > 0:

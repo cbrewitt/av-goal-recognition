@@ -1,7 +1,7 @@
 import shapely
 from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, LineString
 from shapely.errors import TopologicalError
 import numpy as np
 import matplotlib.pyplot as plt
@@ -74,12 +74,31 @@ class LaneletHelpers:
         points = [(p.x, p.y) for ls in linestrings for p in ls]
         return Polygon(points)
 
+    @staticmethod
+    def shapely_point_to_lanelet(p):
+        return BasicPoint2d(p.x, p.y)
+
     @classmethod
     def overlap_area(cls, l1, l2):
         p1 = cls.shapely_polygon(l1)
         p2 = cls.shapely_polygon(l2)
         try:
-            return p1.intersection(p2).area
+            overlap = p1.intersection(p2)
+            if overlap.area > 0:
+                centroid = LaneletHelpers.shapely_point_to_lanelet(overlap.centroid)
+            else:
+                centroid = None
+            return overlap.area, centroid
         except TopologicalError:
-            return 0.0
+            return 0.0, None
 
+    @staticmethod
+    def shapely_linestring(ls):
+        return LineString([(p.x, p.y) for p in ls])
+
+    @classmethod
+    def intersection_point(cls, ls1, ls2):
+        ls1_shapely = cls.shapely_linestring(ls1)
+        ls2_shapely = cls.shapely_linestring(ls2)
+        p = ls1_shapely.intersection(ls2_shapely)
+        return cls.shapely_point_to_lanelet(p)

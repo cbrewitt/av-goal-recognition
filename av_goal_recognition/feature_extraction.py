@@ -14,7 +14,10 @@ class FeatureExtractor:
                      'speed',
                      'acceleration',
                      'angle_in_lane',
-                     'angle_to_goal']
+                     'angle_to_goal',
+                     'vehicle_in_front_dist',
+                     'vehicle_in_front_speed',
+                     'oncoming_vehicle_dist']
 
     def __init__(self, lanelet_map):
         self.lanelet_map = lanelet_map
@@ -55,12 +58,25 @@ class FeatureExtractor:
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
         angle_to_goal = self.angle_to_goal(current_state, goal)
 
+        vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
+        if vehicle_in_front_id is None:
+            vehicle_in_front_speed = 20
+            vehicle_in_front_dist = 100
+        else:
+            vehicle_in_front = current_frame.agents[vehicle_in_front_id]
+            vehicle_in_front_speed = vehicle_in_front.v_lon
+
+        oncoming_vehicle_dist = self.oncoming_vehicle_dist(route, current_frame)
+
         return {'path_to_goal_length': path_to_goal_length,
                 'in_correct_lane': in_correct_lane,
                 'speed': speed,
                 'acceleration': acceleration,
                 'angle_in_lane': angle_in_lane,
-                'angle_to_goal': angle_to_goal}
+                'angle_to_goal': angle_to_goal,
+                'vehicle_in_front_dist': vehicle_in_front_dist,
+                'vehicle_in_front_speed': vehicle_in_front_speed,
+                'oncoming_vehicle_dist': oncoming_vehicle_dist}
 
     @staticmethod
     def angle_in_lane(state, lanelet):
@@ -174,7 +190,7 @@ class FeatureExtractor:
         # find vehicle in front with closest distance
         for agent_id in vehicles_in_front:
             dist = geometry.distance(frame.agents[agent_id].point, state.point)
-            if dist < min_dist:
+            if 0 < dist < min_dist:
                 vehicle_in_front = agent_id
                 min_dist = dist
 
@@ -211,14 +227,15 @@ class FeatureExtractor:
         # TODO: may need testing on new scenarios (other than heckstrasse)
         path = route.shortestPath()
         lanelets_to_cross = []
+        crossing_points = []
 
         crossed_line = False
         for path_lanelet in path:
-
             if not crossed_line:
-                crossed_line_lanelet = self.lanelet_crosses_line(path_lanelet)
+                crossed_line_lanelet, crossing_point = self.lanelet_crosses_line(path_lanelet)
                 if crossed_line_lanelet is not None:
                     lanelets_to_cross.append(crossed_line_lanelet)
+                    crossing_points.append(crossing_point)
                     crossed_line = True
 
             if crossed_line:
@@ -227,19 +244,68 @@ class FeatureExtractor:
                     crossed_line = False
                 else:
                     for lanelet in self.lanelet_map.laneletLayer:
-                        if self.lanelet_crosses_lanelet(path_lanelet, lanelet):
+                        crossing_point = self.lanelet_crosses_lanelet(path_lanelet, lanelet)
+                        if crossing_point is not None:
                             lanelets_to_cross.append(lanelet)
+                            crossing_points.append(crossing_point)
 
-        return lanelets_to_cross
+        return lanelets_to_cross, crossing_points
+
+    def oncoming_vehicle_dist(self, route, frame, max_dist=100):
+        oncoming_vehicles = self.oncoming_vehicles(route, frame, max_dist)
+        min_dist = max_dist
+        for agent_id, (agent, dist) in oncoming_vehicles.items():
+            if dist < min_dist:
+                min_dist = dist
+        return min_dist
+
+    def oncoming_vehicles(self, route, frame, max_dist=30):
+        # get oncoming vehicles in lanes to cross
+        oncoming_vehicles = {}
+        lanelets_to_cross, crossing_points = self.lanelets_to_cross(route)
+        for lanelet, point in zip(lanelets_to_cross, crossing_points):
+            lanelet_start_dist = LaneletHelpers.dist_along(lanelet, point)
+            lanelet_oncoming_vehicles = self.lanelet_oncoming_vehicles(
+                frame, lanelet, lanelet_start_dist, max_dist)
+
+            for agent_id, (agent, dist) in lanelet_oncoming_vehicles.items():
+                if agent_id not in oncoming_vehicles or dist < oncoming_vehicles[agent_id][1]:
+                    oncoming_vehicles[agent_id] = (agent, dist)
+
+        return oncoming_vehicles
+
+    def lanelet_oncoming_vehicles(self, frame, lanelet, lanelet_start_dist, max_dist):
+        # get vehicles oncoming to a root lanelet
+        oncoming_vehicles = {}
+        for agent_id, agent in frame.agents.items():
+            if geometry.inside(lanelet, agent.point):
+                dist_along_lanelet = LaneletHelpers.dist_along(lanelet, agent.point)
+                total_dist_along = lanelet_start_dist - dist_along_lanelet
+                if total_dist_along < max_dist:
+                    oncoming_vehicles[agent_id] = (agent, total_dist_along)
+
+        if lanelet_start_dist < max_dist:
+            for prev_lanelet in self.routing_graph.previous(lanelet):
+                if self.traffic_rules.canPass(prev_lanelet):
+                    prev_lanelet_start_dist = lanelet_start_dist + geometry.length2d(prev_lanelet)
+                    prev_oncoming_vehicles = self.lanelet_oncoming_vehicles(
+                        frame, prev_lanelet, prev_lanelet_start_dist, max_dist)
+
+                    for agent_id, (agent, dist) in prev_oncoming_vehicles.items():
+                        if agent_id not in oncoming_vehicles or dist < oncoming_vehicles[agent_id][1]:
+                            oncoming_vehicles[agent_id] = (agent, dist)
+
+        return oncoming_vehicles
 
     def lanelet_crosses_lanelet(self, path_lanelet, lanelet):
-        # check if a lanelet crosses another lanelet
+        # check if a lanelet crosses another lanelet, return overlap centroid
         if path_lanelet != lanelet and self.traffic_rules.canPass(lanelet):
-            overlap_area = LaneletHelpers.overlap_area(path_lanelet, lanelet)
+            overlap_area, centroid = LaneletHelpers.overlap_area(path_lanelet, lanelet)
             split = (self.routing_graph.previous(path_lanelet)
                      == self.routing_graph.previous(lanelet))
             if overlap_area > 1 and not split:
-                return True
+                return centroid
+        return None
 
     def lanelet_crosses_line(self, path_lanelet):
         # check if the midline of a lanelet crosses a road marking
@@ -254,10 +320,17 @@ class FeatureExtractor:
                                    geometry.intersects2d(path_centerline, left_bound))
                 right_intersects = (not right_virtual and
                                     geometry.intersects2d(path_centerline, right_bound))
-                if path_lanelet != lanelet and (left_intersects or right_intersects):
-                    return lanelet
+                if path_lanelet != lanelet:
+                    if left_intersects:
+                        intersection_point = LaneletHelpers.intersection_point(
+                            path_centerline, left_bound)
+                        return lanelet, intersection_point
+                    elif right_intersects:
+                        intersection_point = LaneletHelpers.intersection_point(
+                            path_centerline, right_bound)
+                        return lanelet, intersection_point
         else:
-            return None
+            return None, None
 
 
 class GoalDetector:

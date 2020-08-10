@@ -63,12 +63,17 @@ def test_overlap_area_no_overlap():
     l1 = map.laneletLayer.get(1)
     l2 = map.laneletLayer.get(2)
     l4 = map.laneletLayer.get(4)
-    assert LaneletHelpers.overlap_area(l1, l2) == 0
-    assert LaneletHelpers.overlap_area(l1, l4) == 0
+    overlap_area, overlap_centroid = LaneletHelpers.overlap_area(l1, l2)
+    assert overlap_area == 0
+    overlap_area, overlap_centroid = LaneletHelpers.overlap_area(l1, l4)
+    assert overlap_area == 0
 
 
 def test_overlap_area_overlap():
     map = get_test_map()
     l4 = map.laneletLayer.get(4)
     l5 = map.laneletLayer.get(5)
-    assert LaneletHelpers.overlap_area(l4, l5) == 0.5
+    overlap_area, overlap_centroid = LaneletHelpers.overlap_area(l4, l5)
+    assert overlap_area == 0.5
+    assert overlap_centroid.x == 7/3
+    assert overlap_centroid.y == 5/3
