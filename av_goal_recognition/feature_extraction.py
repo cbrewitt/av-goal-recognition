@@ -57,6 +57,7 @@ class FeatureExtractor:
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
         angle_to_goal = self.angle_to_goal(current_state, goal)
+        goal_type = self.goal_type(current_state, goal, route)
 
         vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
         if vehicle_in_front_id is None:
@@ -76,7 +77,8 @@ class FeatureExtractor:
                 'angle_to_goal': angle_to_goal,
                 'vehicle_in_front_dist': vehicle_in_front_dist,
                 'vehicle_in_front_speed': vehicle_in_front_speed,
-                'oncoming_vehicle_dist': oncoming_vehicle_dist}
+                'oncoming_vehicle_dist': oncoming_vehicle_dist,
+                'goal_type': goal_type}
 
     @staticmethod
     def angle_in_lane(state, lanelet):
@@ -331,6 +333,23 @@ class FeatureExtractor:
                         return lanelet, intersection_point
         else:
             return None, None
+
+    def goal_type(self, state, goal, route):
+        # get the goal type, based on the route
+        goal_point = BasicPoint2d(*goal)
+        path = route.shortestPath()
+        start_heading = LaneletHelpers.heading_at(path[0], state.point)
+        end_heading = LaneletHelpers.heading_at(path[-1], goal_point)
+        angle_to_goal = np.diff(np.unwrap([end_heading, start_heading]))[0]
+
+        if -np.pi/8 < angle_to_goal < np.pi/8:
+            return 'straight-on'
+        elif np.pi/8 <= angle_to_goal < np.pi * 3/4:
+            return 'turn-right'
+        elif -np.pi/8 >= angle_to_goal > np.pi * -3/4:
+            return 'turn-left'
+        else:
+            return 'u-turn'
 
 
 class GoalDetector:

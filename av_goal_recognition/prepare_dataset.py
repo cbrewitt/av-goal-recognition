@@ -83,6 +83,8 @@ for episode_idx, episode in enumerate(episodes):
                     goal = scenario.config.goals[goal_idx]
                     features = feature_extractor.extract(agent_id, frames, goal, route)
 
+                    # TODO get goal type
+
                     sample = features.copy()
                     sample['agent_id'] = agent_id
                     sample['possible_goal'] = goal_idx

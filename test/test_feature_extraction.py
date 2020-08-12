@@ -181,3 +181,21 @@ def test_vehicle_in_front():
     agent_id, dist = FeatureExtractor.vehicle_in_front(state, route, frame)
     assert agent_id == 1
     assert dist == 2
+
+
+def test_goal_type_straight_on():
+    feature_extractor = get_feature_extractor()
+    start_lanelet = feature_extractor.lanelet_map.laneletLayer.get(1)
+    goal = (3.5, 0.5)
+    route = feature_extractor.route_to_goal(start_lanelet, goal)
+    state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    assert feature_extractor.goal_type(state, goal, route) == 'straight-on'
+
+
+def test_goal_type_turn_left():
+    feature_extractor = get_feature_extractor()
+    start_lanelet = feature_extractor.lanelet_map.laneletLayer.get(1)
+    goal = (3.0, 2.5)
+    route = feature_extractor.route_to_goal(start_lanelet, goal)
+    state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    assert feature_extractor.goal_type(state, goal, route) == 'turn-left'

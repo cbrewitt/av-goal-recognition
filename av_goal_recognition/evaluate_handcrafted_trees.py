@@ -33,7 +33,7 @@ tree_likelihoods = []
 
 for index, row in training_set.iterrows():
     features = row[FeatureExtractor.feature_names]
-    tree = trees[row['possible_goal']]
+    tree = trees[row['possible_goal']][row['goal_type']]
     tree_likelihood = tree.traverse(features)
     tree_likelihoods.append(tree_likelihood)
 
