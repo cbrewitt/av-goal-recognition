@@ -14,7 +14,6 @@ class FeatureExtractor:
                      'speed',
                      'acceleration',
                      'angle_in_lane',
-                     'angle_to_goal',
                      'vehicle_in_front_dist',
                      'vehicle_in_front_speed',
                      'oncoming_vehicle_dist']
@@ -56,7 +55,6 @@ class FeatureExtractor:
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
-        angle_to_goal = self.angle_to_goal(current_state, goal)
         goal_type = self.goal_type(current_state, goal, route)
 
         vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
@@ -74,7 +72,6 @@ class FeatureExtractor:
                 'speed': speed,
                 'acceleration': acceleration,
                 'angle_in_lane': angle_in_lane,
-                'angle_to_goal': angle_to_goal,
                 'vehicle_in_front_dist': vehicle_in_front_dist,
                 'vehicle_in_front_speed': vehicle_in_front_speed,
                 'oncoming_vehicle_dist': oncoming_vehicle_dist,

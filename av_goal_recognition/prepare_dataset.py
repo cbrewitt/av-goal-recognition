@@ -71,6 +71,13 @@ for episode_idx, episode in enumerate(episodes):
 
         # iterate through "samples_per_trajectory" points
         if len(reachable_goals_list) >= samples_per_trajectory:
+
+            # get true goal
+            true_goal_idx = goals[agent_id]
+            true_goal_loc = scenario.config.goals[true_goal_idx]
+            true_goal_route = reachable_goals_list[0][true_goal_idx]
+            true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route)
+
             step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
             max_idx = step_size * samples_per_trajectory
             for idx in range(0, max_idx + 1, step_size):
@@ -88,7 +95,8 @@ for episode_idx, episode in enumerate(episodes):
                     sample = features.copy()
                     sample['agent_id'] = agent_id
                     sample['possible_goal'] = goal_idx
-                    sample['true_goal'] = goals[agent_id]
+                    sample['true_goal'] = true_goal_idx
+                    sample['true_goal_type'] = true_goal_type
                     sample['frame_id'] = state.frame_id
                     sample['fraction_observed'] = idx / max_idx
 

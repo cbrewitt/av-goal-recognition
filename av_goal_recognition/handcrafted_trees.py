@@ -28,8 +28,8 @@ scenario_trees = {'heckstrasse':
                            },
                        1: {'straight-on':
                                Node(0.5, BinaryDecision('in_correct_lane',
-                                    Node(0.8),
-                                    Node(0.2)
+                                    Node(0.9),
+                                    Node(0.1)
                                     )),
                            'turn-left':
                                Node(0.5, ThresholdDecision(2, 'speed',

@@ -21,11 +21,12 @@ training_set = pd.concat(episode_training_sets)
 
 
 # compute goal priors
-agent_goals = training_set[['episode', 'agent_id', 'true_goal']].drop_duplicates()
+agent_goals = training_set[['episode', 'agent_id', 'true_goal', 'true_goal_type']].drop_duplicates()
 print('training_vehicles: {}'.format(agent_goals.shape[0]))
 
-goal_counts = agent_goals['true_goal'].value_counts()
+goal_counts = agent_goals.groupby(['true_goal', 'true_goal_type']).size()
 goal_priors = (goal_counts / agent_goals.shape[0]).rename('prior')
+goal_priors = goal_priors.reset_index()
 print('goal priors:')
 print(goal_priors)
 
@@ -41,7 +42,8 @@ training_set['tree_likelihood'] = tree_likelihoods
 training_set.to_csv(get_data_dir() + 'heckstrasse_train_predictions.csv', index=False)
 
 # one for each agent state
-unique_training_samples = training_set[['episode', 'agent_id', 'frame_id', 'true_goal', 'fraction_observed']].drop_duplicates()
+unique_training_samples = training_set[['episode', 'agent_id', 'frame_id', 'true_goal',
+                                        'true_goal_type', 'fraction_observed']].drop_duplicates()
 
 print('unique training samples: {}'.format(unique_training_samples.shape[0]))
 
@@ -49,12 +51,13 @@ tree_predictions = []
 prior_predictions = []
 
 for index, row in unique_training_samples.iterrows():
+    #import pdb; pdb.set_trace()
     indices = ((training_set.episode == row.episode)
                & (training_set.agent_id == row.agent_id)
                & (training_set.frame_id == row.frame_id))
-    goals = training_set.loc[indices][['possible_goal', 'tree_likelihood']]
-    goals = goals.merge(goal_priors, 'left', left_on='possible_goal',
-                        right_index=True)
+    goals = training_set.loc[indices][['possible_goal', 'goal_type', 'tree_likelihood']]
+    goals = goals.merge(goal_priors, 'left', left_on=['possible_goal', 'goal_type'],
+                        right_on=['true_goal', 'true_goal_type'])
 
     goals['tree_prob'] = goals['tree_likelihood'] * goals['prior']
     goals['tree_prob'] = goals['tree_prob'] / goals['tree_prob'].sum()
@@ -102,11 +105,11 @@ plt.ylabel('Accuracy')
 plt.show()
 
 # find examples where prediction became worse over time
-for agent_id in unique_training_samples.agent_id.unique():
-    agent_samples = unique_training_samples[unique_training_samples.agent_id == agent_id]
-    prev_correct = False
-    for index, row in agent_samples.iterrows():
-        if row['tree_correct'] and not prev_correct and row['fraction_observed'] == 0.2:
-            print(row)
-        prev_correct = row['tree_correct']
+# for agent_id in unique_training_samples.agent_id.unique():
+#     agent_samples = unique_training_samples[unique_training_samples.agent_id == agent_id]
+#     prev_correct = False
+#     for index, row in agent_samples.iterrows():
+#         if row['tree_correct'] and not prev_correct and row['fraction_observed'] == 0.2:
+#             print(row)
+#         prev_correct = row['tree_correct']
 
