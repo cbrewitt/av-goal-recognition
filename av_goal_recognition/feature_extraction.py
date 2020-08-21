@@ -9,14 +9,14 @@ from av_goal_recognition.scenario import Frame
 
 class FeatureExtractor:
 
-    feature_names = ['path_to_goal_length',
-                     'in_correct_lane',
-                     'speed',
-                     'acceleration',
-                     'angle_in_lane',
-                     'vehicle_in_front_dist',
-                     'vehicle_in_front_speed',
-                     'oncoming_vehicle_dist']
+    feature_names = {'path_to_goal_length': 'scalar',
+                     'in_correct_lane': 'binary',
+                     'speed': 'scalar',
+                     'acceleration': 'scalar',
+                     'angle_in_lane': 'scalar',
+                     'vehicle_in_front_dist': 'scalar',
+                     'vehicle_in_front_speed': 'scalar',
+                     'oncoming_vehicle_dist': 'scalar'}
 
     def __init__(self, lanelet_map):
         self.lanelet_map = lanelet_map
