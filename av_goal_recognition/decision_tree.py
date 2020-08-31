@@ -3,11 +3,14 @@ import pickle
 import pydot
 from sklearn.tree import _tree
 
+from av_goal_recognition.feature_extraction import FeatureExtractor
+
 
 class Node:
     def __init__(self, value, decision=None):
         self.value = value
         self.decision = decision
+        self.counts = [None, None]
 
     def traverse(self, features):
         current_node = self
@@ -17,7 +20,7 @@ class Node:
 
     def __str__(self):
         text = ''
-        text += '{0:.3f}\n'.format(self.value)
+        text += '{0:.3f} {1}\n'.format(self.value, self.counts)
         if self.decision is not None:
             text += str(self.decision)
         return text
@@ -51,6 +54,35 @@ class Node:
             return out_node
 
         return recurse(0)
+
+    def set_values(self, training_samples, goal, alpha=0):
+
+        goal_training_samples = training_samples.loc[training_samples.possible_goal == goal]
+        N = goal_training_samples.shape[0]
+        Ng = (goal_training_samples.true_goal == goal).sum()
+        goal_normaliser = 2 * (Ng + alpha) / (N + 2 * alpha)
+        non_goal_normaliser = 2 * (N - Ng + alpha) / (N + 2 * alpha)
+        feature_names = [*FeatureExtractor.feature_names]
+
+        #import pdb; pdb.set_trace()
+        def recurse(node, node_samples):
+            #import pdb;pdb.set_trace()
+            Nng = node_samples.loc[node_samples.true_goal == goal].shape[0]
+            Nn = node_samples.shape[0]
+            Nng_norm = (Nng + alpha) / goal_normaliser
+            Nn_norm = Nng_norm + (Nn - Nng + alpha) / non_goal_normaliser
+            value = Nng_norm / Nn_norm
+            node.value = value
+            node.counts = [Nng, Nn - Nng]
+            features = node_samples.loc[:, feature_names]
+            if node.decision is not None:
+                rule_true = node.decision.rule(features)
+                true_child_samples = node_samples.loc[rule_true]
+                false_child_samples = node_samples.loc[~rule_true]
+                recurse(node.decision.true_child, true_child_samples)
+                recurse(node.decision.false_child, false_child_samples)
+
+        recurse(self, goal_training_samples)
 
     def pydot_tree(self):
         graph = pydot.Dot(graph_type='digraph')

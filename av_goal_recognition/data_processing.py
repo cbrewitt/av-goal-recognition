@@ -26,13 +26,11 @@ def get_dataset(scenario_name, subset='train', features=True):
 
 
 def get_goal_priors(training_set, goal_types, alpha=0):
-    #TODO - add all possible goals, not just those occuring in dataset
     agent_goals = training_set[['episode', 'agent_id', 'true_goal', 'true_goal_type']].drop_duplicates()
     print('training_vehicles: {}'.format(agent_goals.shape[0]))
     goal_counts = pd.DataFrame(data=[(x, t, 0) for x in range(len(goal_types)) for t in goal_types[x]],
                                columns=['true_goal', 'true_goal_type', 'goal_count'])
     goal_counts = goal_counts.set_index(['true_goal', 'true_goal_type'])
-    import pdb; pdb.set_trace()
     goal_counts['goal_count'] += agent_goals.groupby(['true_goal', 'true_goal_type']).size()
     goal_counts = goal_counts.fillna(0)
     goal_priors = ((goal_counts.goal_count + alpha) / (agent_goals.shape[0] + alpha * goal_counts.shape[0])).rename('prior')
