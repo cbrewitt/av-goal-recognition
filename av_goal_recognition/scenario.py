@@ -38,6 +38,11 @@ class ScenarioConfig:
         return self.config_dict.get('goals')
 
     @property
+    def goal_types(self):
+        """list of list of str: Possible goals for agents in this scenario"""
+        return self.config_dict.get('goal_types')
+
+    @property
     def lanelet_file(self):
         """str: Path to the *.osm file specifying the lanelet2 map"""
         return self.config_dict.get('lanelet_file')

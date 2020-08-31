@@ -12,14 +12,13 @@ from av_goal_recognition.data_processing import get_dataset, get_goal_priors
 plt.style.use('ggplot')
 
 scenario_name = 'heckstrasse'
+scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
 handcrafted_trees = scenario_trees[scenario_name]
 with open(get_data_dir() + 'trained_trees_{}.p'.format(scenario_name), 'rb') as f:
     trained_trees = pickle.load(f)
 
 training_set = get_dataset(scenario_name, 'train')
-
-goal_priors = get_goal_priors(training_set)
-
+goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=1)
 dataset = get_dataset(scenario_name, 'test')
 
 print('goal priors:')

@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 
+from av_goal_recognition.data_processing import get_goal_priors, get_dataset
 from av_goal_recognition.scenario import Scenario
 from av_goal_recognition.feature_extraction import GoalDetector, FeatureExtractor
 from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
@@ -10,6 +12,7 @@ sample_freq = 1
 training_set_fraction = 0.8
 samples_per_trajectory = 10
 
+scenario_name = 'heckstrasse'
 
 scenario = Scenario.load(get_scenario_config_dir() + 'heckstrasse.json')
 # use only episode 0 for now
@@ -90,14 +93,13 @@ for episode_idx, episode in enumerate(episodes):
                     goal = scenario.config.goals[goal_idx]
                     features = feature_extractor.extract(agent_id, frames, goal, route)
 
-                    # TODO get goal type
-
                     sample = features.copy()
                     sample['agent_id'] = agent_id
                     sample['possible_goal'] = goal_idx
                     sample['true_goal'] = true_goal_idx
                     sample['true_goal_type'] = true_goal_type
                     sample['frame_id'] = state.frame_id
+                    sample['initial_frame_id'] = trajectory[0].frame_id
                     sample['fraction_observed'] = idx / max_idx
 
                     if trajectory[-1].frame_id <= training_set_cutoff_frame:
@@ -110,3 +112,6 @@ for episode_idx, episode in enumerate(episodes):
 
     training_samples.to_csv(get_data_dir() + 'heckstrasse_e{}_train.csv'.format(episode_idx), index=False)
     test_samples.to_csv(get_data_dir() + 'heckstrasse_e{}_test.csv'.format(episode_idx), index=False)
+
+    goal_priors = get_goal_priors(get_dataset(scenario_name, 'train'), scenario.config.goal_types, alpha=1)
+    goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format('heckstrasse'), index=False)

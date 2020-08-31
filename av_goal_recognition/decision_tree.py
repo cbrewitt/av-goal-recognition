@@ -34,14 +34,14 @@ class Node:
             for i in tree_.feature
         ]
 
-        def recurse(node, depth):
+        def recurse(node):
             value = tree_.value[node][0][1] / tree_.value[node].sum()
             out_node = Node(value)
             if tree_.feature[node] != _tree.TREE_UNDEFINED:
                 name = feature_name[node]
                 threshold = tree_.threshold[node]
-                true_child = recurse(tree_.children_right[node], depth + 1)
-                false_child = recurse(tree_.children_left[node], depth + 1)
+                true_child = recurse(tree_.children_right[node])
+                false_child = recurse(tree_.children_left[node])
                 if feature_types[name] == 'scalar':
                     out_node.decision = ThresholdDecision(threshold, name, true_child, false_child)
                 elif feature_types[name] == 'binary':
@@ -50,7 +50,7 @@ class Node:
                     raise ValueError('invalid feature type')
             return out_node
 
-        return recurse(0, 1)
+        return recurse(0)
 
     def pydot_tree(self):
         graph = pydot.Dot(graph_type='digraph')
