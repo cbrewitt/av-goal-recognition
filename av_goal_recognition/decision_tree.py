@@ -64,9 +64,7 @@ class Node:
         non_goal_normaliser = 2 * (N - Ng + alpha) / (N + 2 * alpha)
         feature_names = [*FeatureExtractor.feature_names]
 
-        #import pdb; pdb.set_trace()
         def recurse(node, node_samples):
-            #import pdb;pdb.set_trace()
             Nng = node_samples.loc[node_samples.true_goal == goal].shape[0]
             Nn = node_samples.shape[0]
             Nng_norm = (Nng + alpha) / goal_normaliser

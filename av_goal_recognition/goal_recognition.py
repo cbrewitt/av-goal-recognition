@@ -19,6 +19,9 @@ class BayesianGoalRecogniser:
     def goal_likelihood(self, goal_idx, frames, route, agent_id):
         raise NotImplementedError
 
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        raise NotImplementedError
+
     def goal_probabilities(self, frames, agent_id):
         state_history = [f.agents[agent_id] for f in frames]
         current_state = state_history[-1]
@@ -46,7 +49,37 @@ class BayesianGoalRecogniser:
         return goal_probs
 
     def batch_goal_probabilities(self, dataset):
-        pass
+        dataset = dataset.copy()
+        model_likelihoods = []
+
+        for index, row in dataset.iterrows():
+            features = row[FeatureExtractor.feature_names]
+            goal_type = row['goal_type']
+            goal = row['possible_goal']
+            model_likelihood = self.goal_likelihood_from_features(features, goal_type, goal)
+
+            model_likelihoods.append(model_likelihood)
+        dataset['model_likelihood'] = model_likelihoods
+        unique_samples = dataset[['episode', 'agent_id', 'frame_id', 'true_goal',
+                                  'true_goal_type', 'fraction_observed']].drop_duplicates()
+        model_predictions = []
+        model_probs = []
+        for index, row in unique_samples.iterrows():
+            indices = ((dataset.episode == row.episode)
+                       & (dataset.agent_id == row.agent_id)
+                       & (dataset.frame_id == row.frame_id))
+            goals = dataset.loc[indices][['possible_goal', 'goal_type', 'model_likelihood']]
+            goals = goals.merge(self.goal_priors, 'left', left_on=['possible_goal', 'goal_type'],
+                                right_on=['true_goal', 'true_goal_type'])
+            goals['model_prob'] = goals['model_likelihood'] * goals['prior']
+            idx = goals['model_prob'].idxmax()
+            model_prediction = goals['possible_goal'].loc[idx]
+            model_predictions.append(model_prediction)
+            model_prob = goals['model_prob'].loc[idx]
+            model_probs.append(model_prob)
+        unique_samples['model_prediction'] = model_predictions
+        unique_samples['model_probs'] = model_probs
+        return unique_samples
 
     @classmethod
     def load(cls, scenario_name):
@@ -73,6 +106,9 @@ class PriorBaseline(BayesianGoalRecogniser):
     def goal_likelihood(self, goal_idx, frames, route, agent_id):
         return 0.5
 
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        return 0.5
+
 
 class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
 
@@ -85,6 +121,14 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
         features = self.feature_extractor.extract(agent_id, frames, goal_loc, route)
         likelihood = self.decision_trees[goal_idx][features['goal_type']].traverse(features)
         return likelihood
+
+    def goal_likelihood_from_features(self, features, goal_type, goal):
+        if goal_type in self.decision_trees[goal]:
+            tree = self.decision_trees[goal][goal_type]
+            tree_likelihood = tree.traverse(features)
+        else:
+            tree_likelihood = 0.5
+        return tree_likelihood
 
     @classmethod
     def load(cls, scenario_name):

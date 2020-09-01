@@ -21,32 +21,24 @@ accuracies = pd.DataFrame(index=models.keys(), columns=dataset_names)
 cross_entropies = pd.DataFrame(index=models.keys(), columns=dataset_names)
 
 for dataset_name in dataset_names:
-    dataset = get_dataset(scenario_name, dataset_name, features=False)
+    dataset = get_dataset(scenario_name, dataset_name)
     predictions = {}
     num_goals = len(scenario.config.goals)
     targets = dataset.true_goal.to_numpy()
 
     for model_name, model in models.items():
         model = model.load(scenario_name)
-        model_predictions = []
+        unique_samples = model.batch_goal_probabilities(dataset)
+        unique_samples['model_correct'] = (unique_samples['model_prediction']
+                                                  == unique_samples['true_goal'])
+        cross_entropy = -np.mean(np.log(unique_samples.loc[
+                                                    unique_samples.model_probs != 0, 'model_probs']))
+        accuracy = unique_samples.model_correct.mean()
 
-        for index, sample in dataset.iterrows():
-            print('{}/{} samples'.format(index + 1, dataset.shape[0]))
-            frames = episodes[sample.episode].frames[sample.initial_frame_id:sample.frame_id+1]
-            goal_probabilities = model.goal_probabilities(frames, sample.agent_id)
-            model_predictions.append(goal_probabilities)
-        model_predictions = np.array(model_predictions)
-        accuracy = (dataset.true_goal.to_numpy() == np.argmax(model_predictions, axis=1)).mean()
-        log_predictions = np.log(model_predictions)
-        target_predictions = model_predictions[np.arange(model_predictions.shape[0]), targets]
-
-        # TODO: figure out a way of not having zeroed predictions - consider multiple possible current lanelets
-        cross_entropy = -np.mean(np.log(target_predictions[target_predictions!=0]))
+        # TODO: figure out a way of not having zeroed predictions - consider multiple possible current lanelet
 
         accuracies.loc[model_name, dataset_name] = accuracy
         cross_entropies.loc[model_name, dataset_name] = cross_entropy
-
-        np.save(get_data_dir() + '{}_{}_predictions.npy'.format(model_name, dataset_name), model_predictions)
 
         print('{} accuracy: {:.3f}'.format(model_name, accuracy))
         print('{} cross entropy: {:.3f}'.format(model_name, cross_entropy))
