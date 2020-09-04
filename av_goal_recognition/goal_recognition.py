@@ -7,6 +7,7 @@ from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.handcrafted_trees import scenario_trees
 from av_goal_recognition.scenario import Scenario
+from av_goal_recognition.metrics import entropy
 
 
 class BayesianGoalRecogniser:
@@ -64,6 +65,10 @@ class BayesianGoalRecogniser:
                                   'true_goal_type', 'fraction_observed']].drop_duplicates()
         model_predictions = []
         model_probs = []
+        min_probs = []
+        max_probs = []
+        model_entropys = []
+        model_norm_entropys = []
         for index, row in unique_samples.iterrows():
             indices = ((dataset.episode == row.episode)
                        & (dataset.agent_id == row.agent_id)
@@ -71,14 +76,31 @@ class BayesianGoalRecogniser:
             goals = dataset.loc[indices][['possible_goal', 'goal_type', 'model_likelihood']]
             goals = goals.merge(self.goal_priors, 'left', left_on=['possible_goal', 'goal_type'],
                                 right_on=['true_goal', 'true_goal_type'])
-            goals['model_prob'] = goals['model_likelihood'] * goals['prior']
+            goals['model_prob'] = goals.model_likelihood * goals.prior
+            goals['model_prob'] = goals.model_prob / goals.model_prob.sum()
             idx = goals['model_prob'].idxmax()
+
+            goal_prob_entropy = entropy(goals.model_prob)
+            uniform_entropy = entropy(np.ones(goals.model_prob.shape[0])
+                                      / goals.model_prob.shape[0])
+            norm_entropy = goal_prob_entropy / uniform_entropy
             model_prediction = goals['possible_goal'].loc[idx]
             model_predictions.append(model_prediction)
             model_prob = goals['model_prob'].loc[idx]
+            max_prob = goals.model_prob.max()
+            min_prob = goals.model_prob.min()
+            max_probs.append(max_prob)
+            min_probs.append(min_prob)
             model_probs.append(model_prob)
+            model_entropys.append(goal_prob_entropy)
+            model_norm_entropys.append(norm_entropy)
+
         unique_samples['model_prediction'] = model_predictions
         unique_samples['model_probs'] = model_probs
+        unique_samples['max_probs'] = max_probs
+        unique_samples['min_probs'] = min_probs
+        unique_samples['model_entropy'] = model_entropys
+        unique_samples['model_entropy_norm'] = model_norm_entropys
         return unique_samples
 
     @classmethod

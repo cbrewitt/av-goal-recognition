@@ -60,15 +60,15 @@ class Node:
         goal_training_samples = training_samples.loc[training_samples.possible_goal == goal]
         N = goal_training_samples.shape[0]
         Ng = (goal_training_samples.true_goal == goal).sum()
-        goal_normaliser = 2 * (Ng + alpha) / (N + 2 * alpha)
-        non_goal_normaliser = 2 * (N - Ng + alpha) / (N + 2 * alpha)
+        goal_normaliser = (N + 2 * alpha) / 2 / (Ng + alpha)
+        non_goal_normaliser = (N + 2 * alpha) / 2 / (N - Ng + alpha)
         feature_names = [*FeatureExtractor.feature_names]
 
         def recurse(node, node_samples):
             Nng = node_samples.loc[node_samples.true_goal == goal].shape[0]
             Nn = node_samples.shape[0]
-            Nng_norm = (Nng + alpha) / goal_normaliser
-            Nn_norm = Nng_norm + (Nn - Nng + alpha) / non_goal_normaliser
+            Nng_norm = (Nng + alpha) * goal_normaliser
+            Nn_norm = Nng_norm + (Nn - Nng + alpha) * non_goal_normaliser
             value = Nng_norm / Nn_norm
             node.value = value
             node.counts = [Nng, Nn - Nng]

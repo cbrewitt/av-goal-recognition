@@ -28,7 +28,7 @@ for goal_idx in goal_priors.true_goal.unique():
                                            & (training_set.goal_type == goal_type)]
         X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
         y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
-        clf = tree.DecisionTreeClassifier(max_leaf_nodes=50, min_samples_leaf=1,
+        clf = tree.DecisionTreeClassifier(max_leaf_nodes=7, min_samples_leaf=1,
                                           class_weight='balanced')
         clf = clf.fit(X, y)
         feature_names = [*FeatureExtractor.feature_names]

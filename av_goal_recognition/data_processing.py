@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from av_goal_recognition.scenario import Scenario
 from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
@@ -30,9 +31,13 @@ def get_goal_priors(training_set, goal_types, alpha=0):
     print('training_vehicles: {}'.format(agent_goals.shape[0]))
     goal_counts = pd.DataFrame(data=[(x, t, 0) for x in range(len(goal_types)) for t in goal_types[x]],
                                columns=['true_goal', 'true_goal_type', 'goal_count'])
+
     goal_counts = goal_counts.set_index(['true_goal', 'true_goal_type'])
     goal_counts['goal_count'] += agent_goals.groupby(['true_goal', 'true_goal_type']).size()
     goal_counts = goal_counts.fillna(0)
+
+    # goal_counts.goal_count.plot.bar()
+    # plt.show()
     goal_priors = ((goal_counts.goal_count + alpha) / (agent_goals.shape[0] + alpha * goal_counts.shape[0])).rename('prior')
     goal_priors = goal_priors.reset_index()
     return goal_priors
