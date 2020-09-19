@@ -1,3 +1,7 @@
+"""
+Modified version of code from https://github.com/ika-rwth-aachen/drone-dataset-tools
+"""
+
 import pandas
 import glob
 import numpy as np

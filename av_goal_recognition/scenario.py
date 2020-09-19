@@ -266,6 +266,10 @@ class Scenario:
         episodes = [loader.load(EpisodeConfig(c)) for c in self.config.episodes]
         return episodes
 
+    def load_episode(self, episode_id):
+        loader = EpisodeLoaderFactory.get_loader(self.config)
+        return loader.load(EpisodeConfig(self.config.episodes[episode_id]))
+
     @classmethod
     def load(cls, file_path):
         config = ScenarioConfig.load(file_path)
@@ -284,12 +288,19 @@ class Scenario:
                       -int(background.shape[0] * rescale_factor), 0)
             plt.imshow(background, extent=extent)
 
+        self.plot_goals(axes)
+
+    def plot_goals(self, axes, scale=1, flipy=False):
         # plot goals
         goal_locations = self.config.goals
-        plt.plot(*zip(*goal_locations), 'ro', markersize=20)
+        x = [g[0] / scale for g in goal_locations]
+        y = [g[1] / scale * (1-2*int(flipy)) for g in goal_locations]
+        axes.plot(x, y, 'ro', markersize=20)
         for i in range(len(goal_locations)):
             label = 'G{}'.format(i)
-            axes.annotate(label, goal_locations[i], color='white')
+            axes.annotate(label, (x[i], y[i]), color='white')
+
+
 
 
 
