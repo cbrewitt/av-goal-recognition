@@ -258,7 +258,9 @@ class Scenario:
     def load_lanelet_map(self):
         origin = lanelet2.io.Origin(self.config.lat_origin, self.config.lon_origin)
         projector = lanelet2.projection.UtmProjector(origin)
-        lanelet_map, _ = lanelet2.io.loadRobust(self.config.lanelet_file, projector)
+        lanelet_map, err_list = lanelet2.io.loadRobust(self.config.lanelet_file, projector)
+        for error in err_list:
+            print(error)
         return lanelet_map
 
     def load_episodes(self):
@@ -293,12 +295,14 @@ class Scenario:
     def plot_goals(self, axes, scale=1, flipy=False):
         # plot goals
         goal_locations = self.config.goals
-        x = [g[0] / scale for g in goal_locations]
-        y = [g[1] / scale * (1-2*int(flipy)) for g in goal_locations]
-        axes.plot(x, y, 'ro', markersize=20)
+        for g in goal_locations:
+            x = g[0] / scale
+            y = g[1] / scale * (1-2*int(flipy))
+            circle = plt.Circle((x, y), 1.5, color='r')
+            axes.add_artist(circle)
         for i in range(len(goal_locations)):
             label = 'G{}'.format(i)
-            axes.annotate(label, (x[i], y[i]), color='white')
+            axes.annotate(label, goal_locations[i], color='white')
 
 
 

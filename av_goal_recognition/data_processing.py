@@ -1,6 +1,9 @@
+import argparse
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from av_goal_recognition.feature_extraction import FeatureExtractor, GoalDetector
 from av_goal_recognition.scenario import Scenario
 from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
 
@@ -41,3 +44,112 @@ def get_goal_priors(training_set, goal_types, alpha=0):
     goal_priors = ((goal_counts.goal_count + alpha) / (agent_goals.shape[0] + alpha * goal_counts.shape[0])).rename('prior')
     goal_priors = goal_priors.reset_index()
     return goal_priors
+
+
+def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajectory=10):
+    scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
+    episodes = scenario.load_episodes()
+    feature_extractor = FeatureExtractor(scenario.lanelet_map)
+    for episode_idx, episode in enumerate(episodes):
+
+        training_samples_list = []
+        test_samples_list = []
+
+        print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
+        num_frames = len(episode.frames)
+
+        training_set_cutoff_frame = int(num_frames * training_set_fraction)
+
+        goals = {}  # key: agent id, value: goal idx
+        trimmed_trajectories = {}
+
+        # detect goal, and trim trajectory past the goal
+        #
+        goal_detector = GoalDetector(scenario.config.goals)
+        for agent_id, agent in episode.agents.items():
+            agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
+            if len(agent_goals) > 0:
+                first_goal_frame_idx = goal_frames[0] - agent.initial_frame
+                trimmed_trajectory = agent.state_history[0:first_goal_frame_idx]
+                goals[agent_id] = agent_goals[0]
+                trimmed_trajectories[agent_id] = trimmed_trajectory
+
+                # plot the trajectory
+                # scenario.plot()
+                # x = [state.x for state in trimmed_trajectory]
+                # y = [state.y for state in trimmed_trajectory]
+                # plt.plot(x, y, color='yellow')
+                # print(agent_goals[0])
+                # plt.show()
+
+        # get features and reachable goals
+
+        for agent_id, trajectory in trimmed_trajectories.items():
+            lanelet_sequence = feature_extractor.get_lanelet_sequence(trajectory)
+            agent = episode.agents[agent_id]
+
+            print('agent_id {}/{}'.format(agent_id, len(trimmed_trajectories) - 1))
+            # iterate through each sampled point in time for trajectory
+
+            reachable_goals_list = []
+
+            # get reachable goals at each timestep
+            for idx in range(0, len(trajectory)):
+                reachable_goals = feature_extractor.reachable_goals(lanelet_sequence[idx],
+                                                                    scenario.config.goals)
+                if len(reachable_goals) > 1:
+                    reachable_goals_list.append(reachable_goals)
+                else:
+                    break
+
+            # iterate through "samples_per_trajectory" points
+            if len(reachable_goals_list) >= samples_per_trajectory:
+
+                # get true goal
+                true_goal_idx = goals[agent_id]
+                true_goal_loc = scenario.config.goals[true_goal_idx]
+                true_goal_route = reachable_goals_list[0][true_goal_idx]
+                true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route)
+
+                step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
+                max_idx = step_size * samples_per_trajectory
+                for idx in range(0, max_idx + 1, step_size):
+                    reachable_goals = reachable_goals_list[idx]
+                    state = trajectory[idx]
+                    frames = episode.frames[trajectory[0].frame_id:state.frame_id + 1]
+
+                    # iterate through each goal for that point in time
+                    for goal_idx, route in reachable_goals.items():
+                        goal = scenario.config.goals[goal_idx]
+                        features = feature_extractor.extract(agent_id, frames, goal, route)
+
+                        sample = features.copy()
+                        sample['agent_id'] = agent_id
+                        sample['possible_goal'] = goal_idx
+                        sample['true_goal'] = true_goal_idx
+                        sample['true_goal_type'] = true_goal_type
+                        sample['frame_id'] = state.frame_id
+                        sample['initial_frame_id'] = trajectory[0].frame_id
+                        sample['fraction_observed'] = idx / max_idx
+
+                        if trajectory[-1].frame_id <= training_set_cutoff_frame:
+                            training_samples_list.append(sample)
+                        elif trajectory[0].frame_id > training_set_cutoff_frame:
+                            test_samples_list.append(sample)
+
+        training_samples = pd.DataFrame(data=training_samples_list)
+        test_samples = pd.DataFrame(data=test_samples_list)
+
+        training_samples.to_csv(get_data_dir() + '{}_e{}_train.csv'.format(scenario_name, episode_idx), index=False)
+        test_samples.to_csv(get_data_dir() + '{}_e{}_test.csv'.format(scenario_name, episode_idx), index=False)
+
+        goal_priors = get_goal_priors(get_dataset(scenario_name, 'train'), scenario.config.goal_types, alpha=1)
+        goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process the dataset')
+    parser.add_argument('--scenario', type=str, help='Name of scenario to process', required=True)
+    args = parser.parse_args()
+    scenario_name = args.scenario
+    prepare_dataset(scenario_name)
