@@ -10,7 +10,7 @@
                  ["turn-left", "turn-right", "straight-on"],
                  ["turn-left", "turn-right", "straight-on"]
   ],
-  "lanelet_file": "../../inD_LaneletMaps/Bendplatz2.osm",
+  "lanelet_file": "../../inD_LaneletMaps/Bendplatz.osm",
   "data_format": "ind",
   "data_root": "../../inD-dataset/data/",
   "background_image": "07_background.png",
