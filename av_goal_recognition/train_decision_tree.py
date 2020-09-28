@@ -29,14 +29,18 @@ for goal_idx in goal_priors.true_goal.unique():
     for goal_type in goal_types:
         dt_training_set = training_set.loc[(training_set.possible_goal == goal_idx)
                                            & (training_set.goal_type == goal_type)]
-        X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
-        y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
-        clf = tree.DecisionTreeClassifier(max_leaf_nodes=7, min_samples_leaf=1,
-                                          class_weight='balanced')
-        clf = clf.fit(X, y)
-        feature_names = [*FeatureExtractor.feature_names]
-        goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
-        goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
+        if dt_training_set.shape[0] > 0:
+            X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
+            y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
+            clf = tree.DecisionTreeClassifier(max_leaf_nodes=7, min_samples_leaf=1,
+                                              class_weight='balanced')
+            clf = clf.fit(X, y)
+            feature_names = [*FeatureExtractor.feature_names]
+            goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+            goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
+        else:
+            goal_tree = Node(0.5)
+
         decision_trees[goal_idx][goal_type] = goal_tree
         pydot_tree = goal_tree.pydot_tree()
         pydot_tree.write_png(get_img_dir() + 'trained_tree_{}_G{}_{}.png'.format(
