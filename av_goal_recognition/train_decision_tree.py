@@ -1,8 +1,7 @@
 import pickle
 
 from sklearn import tree
-import matplotlib.pyplot as plt
-from sklearn.tree import _tree
+import argparse
 
 from av_goal_recognition.base import get_img_dir, get_data_dir, get_scenario_config_dir
 from av_goal_recognition.data_processing import get_dataset, get_goal_priors
@@ -10,12 +9,16 @@ from av_goal_recognition.decision_tree import Node
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.scenario import Scenario
 
+parser = argparse.ArgumentParser(description='Train decision trees for goal recognition')
+parser.add_argument('--scenario', type=str, help='Name of scenario to validate', required=True)
+args = parser.parse_args()
+
 alpha = 1
-scenario_name = 'heckstrasse'
+scenario_name = args.scenario
 scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
 training_set = get_dataset(scenario_name)
 goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
-goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format('heckstrasse'), index=False)
+goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
 print(training_set.columns)
 
 decision_trees = {}

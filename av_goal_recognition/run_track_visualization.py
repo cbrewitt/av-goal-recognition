@@ -29,7 +29,7 @@ def create_args():
     config_specification.add_argument('--episode', default=0,
                                       help="Choose an episode ID.", type=int)
 
-    config_specification.add_argument('--goal_recogniser', default="prior",
+    config_specification.add_argument('--goal_recogniser', default=None,
                                       help="Choose goal recognition method.", type=str)
 
     # --- Settings ---

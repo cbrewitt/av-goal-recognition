@@ -132,6 +132,9 @@ class TrackVisualizer(object):
 
         self.ax.set_autoscale_on(False)
 
+        if self.goal_recogniser is not None:
+            self.scenario.plot_goals(self.ax, self.meta_info["orthoPxToMeter"] * self.scale_down_factor, flipy=True)
+
     def update_keypress(self, evt):
         if evt.key == "right" and self.current_frame + self.skip_n_frames < self.maximum_frames:
             self.current_frame = self.current_frame + self.skip_n_frames
@@ -301,8 +304,6 @@ class TrackVisualizer(object):
                                               bbox={"fc": color, **self.text_box_style}, **self.text_style)
                 plotted_objects.append(text_patch)
 
-        if self.goal_recogniser is not None:
-            self.scenario.plot_goals(self.ax, self.meta_info["orthoPxToMeter"] * self.scale_down_factor, flipy=True)
         # Add listener to figure
         self.fig.canvas.mpl_connect('pick_event', self.on_click)
         # Save the plotted objects in a list

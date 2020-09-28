@@ -265,7 +265,11 @@ class Scenario:
 
     def load_episodes(self):
         loader = EpisodeLoaderFactory.get_loader(self.config)
-        episodes = [loader.load(EpisodeConfig(c)) for c in self.config.episodes]
+        episodes = []
+        for idx, c in enumerate(self.config.episodes):
+            print('loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
+            episode = loader.load(EpisodeConfig(c))
+            episodes.append(episode)
         return episodes
 
     def load_episode(self, episode_id):
@@ -289,20 +293,22 @@ class Scenario:
             extent = (0, int(background.shape[1] * rescale_factor),
                       -int(background.shape[0] * rescale_factor), 0)
             plt.imshow(background, extent=extent)
+            plt.xlim([extent[0], extent[1]])
+            plt.ylim([extent[2], extent[3]])
 
         self.plot_goals(axes)
 
     def plot_goals(self, axes, scale=1, flipy=False):
         # plot goals
         goal_locations = self.config.goals
-        for g in goal_locations:
+        for idx, g in enumerate(goal_locations):
             x = g[0] / scale
             y = g[1] / scale * (1-2*int(flipy))
-            circle = plt.Circle((x, y), 1.5, color='r')
+            circle = plt.Circle((x, y), 1.5/scale, color='r')
             axes.add_artist(circle)
-        for i in range(len(goal_locations)):
-            label = 'G{}'.format(i)
-            axes.annotate(label, goal_locations[i], color='white')
+            label = 'G{}'.format(idx)
+            axes.annotate(label, (x, y), color='white')
+
 
 
 

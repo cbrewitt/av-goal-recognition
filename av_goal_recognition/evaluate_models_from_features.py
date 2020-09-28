@@ -1,19 +1,24 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import argparse
 
 from av_goal_recognition.base import get_scenario_config_dir, get_data_dir
 from av_goal_recognition.data_processing import get_dataset
 from av_goal_recognition.goal_recognition import PriorBaseline, HandcraftedGoalTrees, TrainedDecisionTrees
 from av_goal_recognition.scenario import Scenario
 
-scenario_name = 'heckstrasse'
+parser = argparse.ArgumentParser(description='Train decision trees for goal recognition')
+parser.add_argument('--scenario', type=str, help='Name of scenario to validate', required=True)
+args = parser.parse_args()
+
+scenario_name = args.scenario
 scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
-print('loading episodes')
-episodes = scenario.load_episodes()
+# print('loading episodes')
+# episodes = scenario.load_episodes()
 
 models = {'prior_baseline': PriorBaseline,
-          'handcrafted_trees': HandcraftedGoalTrees,
+          #'handcrafted_trees': HandcraftedGoalTrees,
           'trained_trees': TrainedDecisionTrees}
 
 dataset_names = ['train', 'test']

@@ -1,3 +1,5 @@
+import argparse
+
 from lanelet2.core import BasicPoint2d
 import matplotlib.pyplot as plt
 
@@ -42,5 +44,8 @@ def debug_plot(start_lanelet, feature_extractor, scenario):
 
 
 if __name__ == '__main__':
-    scenario = Scenario.load('../scenario_config/bendplatz.json')
+    parser = argparse.ArgumentParser(description='Validate a scenario lanelet map')
+    parser.add_argument('--scenario', type=str, help='Name of scenario to validate', required=True)
+    args = parser.parse_args()
+    scenario = Scenario.load('../scenario_config/{}.json'.format(args.scenario))
     validate_scenario(scenario)

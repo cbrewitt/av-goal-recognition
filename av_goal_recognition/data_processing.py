@@ -64,29 +64,20 @@ def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajec
         trimmed_trajectories = {}
 
         # detect goal, and trim trajectory past the goal
-        #
         goal_detector = GoalDetector(scenario.config.goals)
         for agent_id, agent in episode.agents.items():
-            agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
-            if len(agent_goals) > 0:
-                first_goal_frame_idx = goal_frames[0] - agent.initial_frame
-                trimmed_trajectory = agent.state_history[0:first_goal_frame_idx]
-                goals[agent_id] = agent_goals[0]
-                trimmed_trajectories[agent_id] = trimmed_trajectory
-
-                # plot the trajectory
-                # scenario.plot()
-                # x = [state.x for state in trimmed_trajectory]
-                # y = [state.y for state in trimmed_trajectory]
-                # plt.plot(x, y, color='yellow')
-                # print(agent_goals[0])
-                # plt.show()
+            if agent.agent_type in ['car', 'truck_bus']:
+                agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
+                if len(agent_goals) > 0:
+                    final_goal_frame_idx = goal_frames[-1] - agent.initial_frame
+                    trimmed_trajectory = agent.state_history[0:final_goal_frame_idx]
+                    goals[agent_id] = agent_goals[-1]
+                    trimmed_trajectories[agent_id] = trimmed_trajectory
 
         # get features and reachable goals
 
         for agent_id, trajectory in trimmed_trajectories.items():
             lanelet_sequence = feature_extractor.get_lanelet_sequence(trajectory)
-            agent = episode.agents[agent_id]
 
             print('agent_id {}/{}'.format(agent_id, len(trimmed_trajectories) - 1))
             # iterate through each sampled point in time for trajectory
@@ -103,10 +94,10 @@ def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajec
                     break
 
             # iterate through "samples_per_trajectory" points
-            if len(reachable_goals_list) >= samples_per_trajectory:
+            true_goal_idx = goals[agent_id]
+            if len(reachable_goals_list) > samples_per_trajectory and true_goal_idx in reachable_goals_list[0]:
 
                 # get true goal
-                true_goal_idx = goals[agent_id]
                 true_goal_loc = scenario.config.goals[true_goal_idx]
                 true_goal_route = reachable_goals_list[0][true_goal_idx]
                 true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route)
@@ -143,8 +134,8 @@ def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajec
         training_samples.to_csv(get_data_dir() + '{}_e{}_train.csv'.format(scenario_name, episode_idx), index=False)
         test_samples.to_csv(get_data_dir() + '{}_e{}_test.csv'.format(scenario_name, episode_idx), index=False)
 
-        goal_priors = get_goal_priors(get_dataset(scenario_name, 'train'), scenario.config.goal_types, alpha=1)
-        goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
+    goal_priors = get_goal_priors(get_dataset(scenario_name, 'train'), scenario.config.goal_types, alpha=1)
+    goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
 
 
 if __name__ == '__main__':
