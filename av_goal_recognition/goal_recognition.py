@@ -1,9 +1,11 @@
 import pickle
-
+from sklearn import tree
 import numpy as np
 import pandas as pd
 
-from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
+from av_goal_recognition.base import get_data_dir, get_scenario_config_dir, get_img_dir
+from av_goal_recognition.data_processing import get_goal_priors, get_dataset
+from av_goal_recognition.decision_tree import Node
 from av_goal_recognition.feature_extraction import FeatureExtractor
 from av_goal_recognition.handcrafted_trees import scenario_trees
 from av_goal_recognition.scenario import Scenario
@@ -162,6 +164,44 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
     @staticmethod
     def load_decision_trees(scenario_name):
         raise NotImplementedError
+
+    @classmethod
+    def train(cls, scenario_name, alpha):
+        decision_trees = {}
+        scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
+        training_set = get_dataset(scenario_name, subset='train')
+        goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
+
+        for goal_idx in goal_priors.true_goal.unique():
+            decision_trees[goal_idx] = {}
+            goal_types = goal_priors.loc[goal_priors.true_goal == goal_idx].true_goal_type.unique()
+            for goal_type in goal_types:
+                dt_training_set = training_set.loc[(training_set.possible_goal == goal_idx)
+                                                   & (training_set.goal_type == goal_type)]
+                if dt_training_set.shape[0] > 0:
+                    X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
+                    y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
+                    clf = tree.DecisionTreeClassifier(max_leaf_nodes=7, min_samples_leaf=1,
+                                                      class_weight='balanced')
+                    clf = clf.fit(X, y)
+                    goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                    goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
+                else:
+                    goal_tree = Node(0.5)
+
+                decision_trees[goal_idx][goal_type] = goal_tree
+        return cls(goal_priors, scenario, decision_trees)
+
+    def save(self, scenario_name):
+        for goal_idx in self.goal_priors.true_goal.unique():
+            goal_types = self.goal_priors.loc[self.goal_priors.true_goal == goal_idx].true_goal_type.unique()
+            for goal_type in goal_types:
+                goal_tree = self.decision_trees[goal_idx][goal_type]
+                pydot_tree = goal_tree.pydot_tree()
+                pydot_tree.write_png(get_img_dir() + 'trained_tree_{}_G{}_{}.png'.format(
+                    scenario_name, goal_idx, goal_type))
+        with open(get_data_dir() + 'trained_trees_{}.p'.format(scenario_name), 'wb') as f:
+            pickle.dump(self.decision_trees, f)
 
 
 class HandcraftedGoalTrees(DecisionTreeGoalRecogniser):

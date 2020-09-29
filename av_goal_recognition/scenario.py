@@ -38,6 +38,11 @@ class ScenarioConfig:
         return self.config_dict.get('goals')
 
     @property
+    def name(self):
+        """str: Name of the scenario"""
+        return self.config_dict.get('name')
+
+    @property
     def goal_types(self):
         """list of list of str: Possible goals for agents in this scenario"""
         return self.config_dict.get('goal_types')
