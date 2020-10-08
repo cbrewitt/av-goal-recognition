@@ -46,19 +46,21 @@ def get_goal_priors(training_set, goal_types, alpha=0):
     return goal_priors
 
 
-def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajectory=10):
+def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, samples_per_trajectory=10):
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
     episodes = scenario.load_episodes()
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
     for episode_idx, episode in enumerate(episodes):
 
         training_samples_list = []
+        validation_samples_list = []
         test_samples_list = []
 
         print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
         num_frames = len(episode.frames)
 
-        training_set_cutoff_frame = int(num_frames * training_set_fraction)
+        training_set_cutoff_frame = int(num_frames * train_fraction)
+        validation_set_cuttoff_frame = training_set_cutoff_frame + int(num_frames * valid_fraction)
 
         goals = {}  # key: agent id, value: goal idx
         trimmed_trajectories = {}
@@ -125,22 +127,31 @@ def prepare_dataset(scenario_name, training_set_fraction=0.8, samples_per_trajec
 
                         if trajectory[-1].frame_id <= training_set_cutoff_frame:
                             training_samples_list.append(sample)
-                        elif trajectory[0].frame_id > training_set_cutoff_frame:
+                        elif (trajectory[0].frame_id > training_set_cutoff_frame
+                              and trajectory[-1].frame_id <= validation_set_cuttoff_frame):
+                            validation_samples_list.append(sample)
+                        elif trajectory[0].frame_id > validation_set_cuttoff_frame:
                             test_samples_list.append(sample)
 
         training_samples = pd.DataFrame(data=training_samples_list)
+        validation_samples = pd.DataFrame(data=validation_samples_list)
         test_samples = pd.DataFrame(data=test_samples_list)
 
         training_samples.to_csv(get_data_dir() + '{}_e{}_train.csv'.format(scenario_name, episode_idx), index=False)
+        validation_samples.to_csv(get_data_dir() + '{}_e{}_valid.csv'.format(scenario_name, episode_idx), index=False)
         test_samples.to_csv(get_data_dir() + '{}_e{}_test.csv'.format(scenario_name, episode_idx), index=False)
-
-    goal_priors = get_goal_priors(get_dataset(scenario_name, 'train'), scenario.config.goal_types, alpha=1)
-    goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process the dataset')
-    parser.add_argument('--scenario', type=str, help='Name of scenario to process', required=True)
+    parser.add_argument('--scenario', type=str, help='Name of scenario to process', default=None)
     args = parser.parse_args()
-    scenario_name = args.scenario
-    prepare_dataset(scenario_name)
+
+    if args.scenario is None:
+        scenarios = ['heckstrasse', 'bendplatz', 'frankenberg']
+    else:
+        scenarios = [args.scenario]
+
+    for scenario_name in scenarios:
+        print('Processing dataset for scenario: ' + scenario_name)
+        prepare_dataset(scenario_name)

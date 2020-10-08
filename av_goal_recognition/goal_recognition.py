@@ -166,10 +166,12 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
         raise NotImplementedError
 
     @classmethod
-    def train(cls, scenario_name, alpha):
+    def train(cls, scenario_name, alpha=1, ccp_alpha=0, criterion='gini', min_samples_leaf=1,
+              max_leaf_nodes=None, max_depth=None, training_set=None):
         decision_trees = {}
         scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
-        training_set = get_dataset(scenario_name, subset='train')
+        if training_set is None:
+            training_set = get_dataset(scenario_name, subset='train')
         goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
 
         for goal_idx in goal_priors.true_goal.unique():
@@ -181,8 +183,9 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
                 if dt_training_set.shape[0] > 0:
                     X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
                     y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
-                    clf = tree.DecisionTreeClassifier(max_leaf_nodes=7, min_samples_leaf=1,
-                                                      class_weight='balanced')
+                    clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
+                        min_samples_leaf=min_samples_leaf, max_depth=max_depth, class_weight='balanced',
+                        ccp_alpha=ccp_alpha, criterion=criterion)
                     clf = clf.fit(X, y)
                     goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
                     goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)

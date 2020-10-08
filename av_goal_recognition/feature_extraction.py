@@ -132,6 +132,18 @@ class FeatureExtractor:
                     best_can_pass = can_pass
         return best_lanelet
 
+    def lanelets_at(self, point):
+        nearest_lanelets = geometry.findNearest(self.lanelet_map.laneletLayer, point, 1)
+        matching_lanelets = []
+        for distance, lanelet in nearest_lanelets:
+            if distance == 0 and self.traffic_rules.canPass(lanelet):
+                matching_lanelets.append(lanelet)
+        return matching_lanelets
+
+    def get_current_lanelets(self, state, goals):
+        # get most likely current lanelet for each goal
+        pass
+
     @staticmethod
     def get_vehicles_in_front(route, frame):
         path = route.shortestPath()
@@ -155,14 +167,6 @@ class FeatureExtractor:
         # can we legally pass directly from lanelet a to b
         return (a == b or LaneletHelpers.follows(b, a)
                 or self.traffic_rules.canChangeLane(a, b))
-
-    def lanelets_at(self, point):
-        nearest_lanelets = geometry.findNearest(self.lanelet_map.laneletLayer, point, 1)
-        matching_lanelets = []
-        for distance, lanelet in nearest_lanelets:
-            if distance == 0 and self.traffic_rules.canPass(lanelet):
-                matching_lanelets.append(lanelet)
-        return matching_lanelets
 
     def lanelet_at(self, point):
         lanelets = self.lanelets_at(point)
