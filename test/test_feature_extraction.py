@@ -92,7 +92,7 @@ def test_lanelets_at_single():
 
 def test_lanelets_at_multiple():
     feature_extractor = get_feature_extractor()
-    lanelets = feature_extractor.lanelets_at(BasicPoint2d(2.5, 1.5))
+    lanelets = feature_extractor.lanelets_at(BasicPoint2d(2.2, 1.5))
     assert Counter([l.id for l in lanelets]) == Counter([4, 5])
 
 
@@ -199,3 +199,19 @@ def test_goal_type_turn_left():
     route = feature_extractor.route_to_goal(start_lanelet, goal)
     state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     assert feature_extractor.goal_type(state, goal, route) == 'turn-left'
+
+
+def test_get_goals_current_lanelets():
+    feature_extractor = get_feature_extractor()
+    goals = [(3.5, 0.5)]
+    state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    current_lanelets = feature_extractor.get_goals_current_lanelets(state, goals)
+    assert [l.id for l in current_lanelets] == [1]
+
+
+def test_get_goals_current_lanelets_multiple():
+    feature_extractor = get_feature_extractor()
+    goals = [(3.5, 1.5), (3.0, 2.5)]
+    state = AgentState(0, 2.2, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    current_lanelets = feature_extractor.get_goals_current_lanelets(state, goals)
+    assert [l.id for l in current_lanelets] == [4, 5]

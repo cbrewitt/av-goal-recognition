@@ -8,7 +8,6 @@ from av_goal_recognition.scenario import Frame
 
 
 class FeatureExtractor:
-
     feature_names = {'path_to_goal_length': 'scalar',
                      'in_correct_lane': 'binary',
                      'speed': 'scalar',
@@ -25,18 +24,7 @@ class FeatureExtractor:
         self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, self.traffic_rules)
 
     def extract(self, agent_id, frames, goal, route=None):
-        """Extracts a vector of features
-
-        Args:
-            tracks:
-            track_id:
-            frame:
-            lanelet_map:
-            goal:
-
-        Returns:
-            list: [in_correct_lane, distance_to_goal, speed, acceleration]
-
+        """Extracts a dict of features
         """
 
         current_frame = frames[-1]
@@ -119,13 +107,13 @@ class FeatureExtractor:
                 angle_diff = abs(self.angle_in_lane(state, lanelet))
                 can_pass = (False if previous_lanelet is None
                             else self.can_pass(previous_lanelet, lanelet))
-                if (angle_diff < np.pi/2
+                if (angle_diff < np.pi / 2
                         and (best_lanelet is None
                              or (can_pass and not best_can_pass)
                              or ((can_pass or not best_can_pass)
                                  and (dist_from_point < best_dist
-                                 or (best_dist == dist_from_point
-                                     and angle_diff < best_angle_diff))))):
+                                      or (best_dist == dist_from_point
+                                          and angle_diff < best_angle_diff))))):
                     best_lanelet = lanelet
                     best_angle_diff = angle_diff
                     best_dist = dist_from_point
@@ -140,9 +128,56 @@ class FeatureExtractor:
                 matching_lanelets.append(lanelet)
         return matching_lanelets
 
-    def get_current_lanelets(self, state, goals):
-        # get most likely current lanelet for each goal
-        pass
+    def get_goals_current_lanelets(self, state, goals):
+        """
+            get most likely current lanelet for each goal
+
+            lanelet must be:
+                * close (radius 3m)
+                * direction within 90 degrees of car
+                * can pass
+                * goal is reachable from
+
+            Rank lanelets based on:
+                * distance to current point
+                * angle diff
+        """
+        point = state.point
+        radius = 3
+        bounding_box = BoundingBox2d(BasicPoint2d(point.x - radius, point.y - radius),
+                                     BasicPoint2d(point.x + radius, point.y + radius))
+        nearby_lanelets = self.lanelet_map.laneletLayer.search(bounding_box)
+        angle_diffs = [abs(self.angle_in_lane(state, l)) for l in nearby_lanelets]
+        dists_from_point = [geometry.distance(l, point) for l in nearby_lanelets]
+
+        # filter out invalid lanelets
+        possible_lanelets = []
+        for idx, lanelet in enumerate(nearby_lanelets):
+            if (angle_diffs[idx] < np.pi / 2
+                    and dists_from_point[idx] < radius
+                    and self.traffic_rules.canPass(lanelet)):
+                possible_lanelets.append(idx)
+
+        # find best lanelet for each goal
+        goal_lanelets = []
+        for goal in goals:
+            # find reachable lanelets for each goal
+            best_idx = None
+            for lanelet_idx in possible_lanelets:
+                if (best_idx is None
+                    or dists_from_point[lanelet_idx] < dists_from_point[best_idx]
+                    or (dists_from_point[lanelet_idx] == dists_from_point[best_idx]
+                        and angle_diffs[lanelet_idx] < angle_diffs[best_idx])):
+                    lanelet = nearby_lanelets[lanelet_idx]
+                    if self.route_to_goal(lanelet, goal) is not None:
+                        best_idx = lanelet_idx
+            if best_idx is None:
+                goal_lanelet = None
+            else:
+                goal_lanelet = nearby_lanelets[best_idx]
+            goal_lanelets.append(goal_lanelet)
+
+        return goal_lanelets
 
     @staticmethod
     def get_vehicles_in_front(route, frame):
@@ -155,7 +190,7 @@ class FeatureExtractor:
         return agents
 
     def get_lanelet_sequence(self, states):
-        # get the correspoding lanelets for a seqeunce of frames
+        # get the correspoding lanelets for a sequence of frames
         lanelets = []
         lanelet = None
         for state in states:
@@ -343,11 +378,11 @@ class FeatureExtractor:
         end_heading = LaneletHelpers.heading_at(path[-1], goal_point)
         angle_to_goal = np.diff(np.unwrap([end_heading, start_heading]))[0]
 
-        if -np.pi/8 < angle_to_goal < np.pi/8:
+        if -np.pi / 8 < angle_to_goal < np.pi / 8:
             return 'straight-on'
-        elif np.pi/8 <= angle_to_goal < np.pi * 3/4:
+        elif np.pi / 8 <= angle_to_goal < np.pi * 3 / 4:
             return 'turn-right'
-        elif -np.pi/8 >= angle_to_goal > np.pi * -3/4:
+        elif -np.pi / 8 >= angle_to_goal > np.pi * -3 / 4:
             return 'turn-left'
         else:
             return 'u-turn'
