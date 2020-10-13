@@ -53,9 +53,6 @@ for scenario_name in scenario_names:
         cross_entropy = -np.mean(np.log(unique_samples.loc[
                                                     unique_samples.model_probs != 0, 'model_probs']))
         accuracy = unique_samples.model_correct.mean()
-
-        # TODO: figure out a way of not having zeroed predictions - consider multiple possible current lanelet
-
         accuracies.loc[model_name, scenario_name] = accuracy
         cross_entropies.loc[model_name, scenario_name] = cross_entropy
         entropies.loc[model_name, scenario_name] = unique_samples.model_entropy.mean()

@@ -23,15 +23,14 @@ class FeatureExtractor:
             lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
         self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, self.traffic_rules)
 
-    def extract(self, agent_id, frames, goal, route=None):
+    def extract(self, agent_id, frames, goal, route):
         """Extracts a dict of features
         """
 
         current_frame = frames[-1]
         current_state = current_frame.agents[agent_id]
-        state_history = [f.agents[agent_id] for f in frames]
-        lanelet_sequence = self.get_lanelet_sequence(state_history)
-        current_lanelet = lanelet_sequence[-1]
+        initial_state = frames[0].agents[agent_id]
+        current_lanelet = route.shortestPath()[0]
 
         if route is None:
             route = self.route_to_goal(current_lanelet, goal)
@@ -43,7 +42,7 @@ class FeatureExtractor:
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
-        goal_type = self.goal_type(current_state, goal, route)
+        goal_type = self.goal_type(initial_state, goal, route)
 
         vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
         if vehicle_in_front_id is None:
@@ -70,14 +69,6 @@ class FeatureExtractor:
         lane_heading = LaneletHelpers.heading_at(lanelet, state.point)
         angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))[0]
         return angle_diff
-
-    def reachable_goals(self, start_lanelet, goals):
-        goals_and_routes = {}
-        for goal_idx, goal in enumerate(goals):
-            route = self.route_to_goal(start_lanelet, goal)
-            if route is not None:
-                goals_and_routes[goal_idx] = route
-        return goals_and_routes
 
     def route_to_goal(self, start_lanelet, goal):
         goal_point = BasicPoint2d(goal[0], goal[1])
@@ -121,16 +112,16 @@ class FeatureExtractor:
         return best_lanelet
 
     def lanelets_at(self, point):
-        nearest_lanelets = geometry.findNearest(self.lanelet_map.laneletLayer, point, 1)
+        nearest_lanelets = geometry.findWithin2d(self.lanelet_map.laneletLayer, point)
         matching_lanelets = []
         for distance, lanelet in nearest_lanelets:
             if distance == 0 and self.traffic_rules.canPass(lanelet):
                 matching_lanelets.append(lanelet)
         return matching_lanelets
 
-    def get_goals_current_lanelets(self, state, goals):
+    def get_goal_routes(self, state, goals):
         """
-            get most likely current lanelet for each goal
+            get most likely current lanelet and corresponding route for each goal
 
             lanelet must be:
                 * close (radius 3m)
@@ -146,7 +137,9 @@ class FeatureExtractor:
         radius = 3
         bounding_box = BoundingBox2d(BasicPoint2d(point.x - radius, point.y - radius),
                                      BasicPoint2d(point.x + radius, point.y + radius))
-        nearby_lanelets = self.lanelet_map.laneletLayer.search(bounding_box)
+        nearby_lanelets = [l for l in self.lanelet_map.laneletLayer.search(bounding_box)
+                           if len(l.centerline) > 0]
+
         angle_diffs = [abs(self.angle_in_lane(state, l)) for l in nearby_lanelets]
         dists_from_point = [geometry.distance(l, point) for l in nearby_lanelets]
 
@@ -160,24 +153,30 @@ class FeatureExtractor:
 
         # find best lanelet for each goal
         goal_lanelets = []
+        goal_routes = []
         for goal in goals:
             # find reachable lanelets for each goal
             best_idx = None
+            best_route = None
             for lanelet_idx in possible_lanelets:
                 if (best_idx is None
                     or dists_from_point[lanelet_idx] < dists_from_point[best_idx]
                     or (dists_from_point[lanelet_idx] == dists_from_point[best_idx]
                         and angle_diffs[lanelet_idx] < angle_diffs[best_idx])):
                     lanelet = nearby_lanelets[lanelet_idx]
-                    if self.route_to_goal(lanelet, goal) is not None:
+                    route = self.route_to_goal(lanelet, goal)
+                    if route is not None:
                         best_idx = lanelet_idx
+                        best_route = route
             if best_idx is None:
                 goal_lanelet = None
             else:
                 goal_lanelet = nearby_lanelets[best_idx]
-            goal_lanelets.append(goal_lanelet)
 
-        return goal_lanelets
+            goal_lanelets.append(goal_lanelet)
+            goal_routes.append(best_route)
+
+        return goal_routes
 
     @staticmethod
     def get_vehicles_in_front(route, frame):
@@ -374,7 +373,7 @@ class FeatureExtractor:
         # get the goal type, based on the route
         goal_point = BasicPoint2d(*goal)
         path = route.shortestPath()
-        start_heading = LaneletHelpers.heading_at(path[0], state.point)
+        start_heading = state.heading
         end_heading = LaneletHelpers.heading_at(path[-1], goal_point)
         angle_to_goal = np.diff(np.unwrap([end_heading, start_heading]))[0]
 

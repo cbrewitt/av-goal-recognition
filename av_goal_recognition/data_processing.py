@@ -78,26 +78,25 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
 
         # get features and reachable goals
 
-        for agent_id, trajectory in trimmed_trajectories.items():
-            lanelet_sequence = feature_extractor.get_lanelet_sequence(trajectory)
+        for agent_idx, (agent_id, trajectory) in enumerate(trimmed_trajectories.items()):
 
-            print('agent_id {}/{}'.format(agent_id, len(trimmed_trajectories) - 1))
+            print('agent_id {}/{}'.format(agent_idx, len(trimmed_trajectories) - 1))
             # iterate through each sampled point in time for trajectory
 
             reachable_goals_list = []
 
             # get reachable goals at each timestep
             for idx in range(0, len(trajectory)):
-                reachable_goals = feature_extractor.reachable_goals(lanelet_sequence[idx],
-                                                                    scenario.config.goals)
-                if len(reachable_goals) > 1:
-                    reachable_goals_list.append(reachable_goals)
+                goal_routes = feature_extractor.get_goal_routes(trajectory[idx], scenario.config.goals)
+                if len([r for r in goal_routes if r is not None]) > 1:
+                    reachable_goals_list.append(goal_routes)
                 else:
                     break
 
             # iterate through "samples_per_trajectory" points
             true_goal_idx = goals[agent_id]
-            if len(reachable_goals_list) > samples_per_trajectory and true_goal_idx in reachable_goals_list[0]:
+            if (len(reachable_goals_list) > samples_per_trajectory
+                    and reachable_goals_list[0][true_goal_idx] is not None):
 
                 # get true goal
                 true_goal_loc = scenario.config.goals[true_goal_idx]
@@ -112,26 +111,31 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
                     frames = episode.frames[trajectory[0].frame_id:state.frame_id + 1]
 
                     # iterate through each goal for that point in time
-                    for goal_idx, route in reachable_goals.items():
-                        goal = scenario.config.goals[goal_idx]
-                        features = feature_extractor.extract(agent_id, frames, goal, route)
+                    for goal_idx, route in enumerate(reachable_goals):
+                        if route is not None:
+                            goal = scenario.config.goals[goal_idx]
 
-                        sample = features.copy()
-                        sample['agent_id'] = agent_id
-                        sample['possible_goal'] = goal_idx
-                        sample['true_goal'] = true_goal_idx
-                        sample['true_goal_type'] = true_goal_type
-                        sample['frame_id'] = state.frame_id
-                        sample['initial_frame_id'] = trajectory[0].frame_id
-                        sample['fraction_observed'] = idx / max_idx
+                            # if agent_id == 332 and state.frame_id == 21493:
+                            #     import pdb; pdb.set_trace()
 
-                        if trajectory[-1].frame_id <= training_set_cutoff_frame:
-                            training_samples_list.append(sample)
-                        elif (trajectory[0].frame_id > training_set_cutoff_frame
-                              and trajectory[-1].frame_id <= validation_set_cuttoff_frame):
-                            validation_samples_list.append(sample)
-                        elif trajectory[0].frame_id > validation_set_cuttoff_frame:
-                            test_samples_list.append(sample)
+                            features = feature_extractor.extract(agent_id, frames, goal, route)
+
+                            sample = features.copy()
+                            sample['agent_id'] = agent_id
+                            sample['possible_goal'] = goal_idx
+                            sample['true_goal'] = true_goal_idx
+                            sample['true_goal_type'] = true_goal_type
+                            sample['frame_id'] = state.frame_id
+                            sample['initial_frame_id'] = trajectory[0].frame_id
+                            sample['fraction_observed'] = idx / max_idx
+
+                            if trajectory[-1].frame_id <= training_set_cutoff_frame:
+                                training_samples_list.append(sample)
+                            elif (trajectory[0].frame_id > training_set_cutoff_frame
+                                  and trajectory[-1].frame_id <= validation_set_cuttoff_frame):
+                                validation_samples_list.append(sample)
+                            elif trajectory[0].frame_id > validation_set_cuttoff_frame:
+                                test_samples_list.append(sample)
 
         training_samples = pd.DataFrame(data=training_samples_list)
         validation_samples = pd.DataFrame(data=validation_samples_list)

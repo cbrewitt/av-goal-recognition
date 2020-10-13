@@ -205,7 +205,7 @@ def test_get_goals_current_lanelets():
     feature_extractor = get_feature_extractor()
     goals = [(3.5, 0.5)]
     state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    current_lanelets = feature_extractor.get_goals_current_lanelets(state, goals)
+    current_lanelets = feature_extractor.get_goal_routes(state, goals)
     assert [l.id for l in current_lanelets] == [1]
 
 
@@ -213,5 +213,5 @@ def test_get_goals_current_lanelets_multiple():
     feature_extractor = get_feature_extractor()
     goals = [(3.5, 1.5), (3.0, 2.5)]
     state = AgentState(0, 2.2, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    current_lanelets = feature_extractor.get_goals_current_lanelets(state, goals)
+    current_lanelets = feature_extractor.get_goal_routes(state, goals)
     assert [l.id for l in current_lanelets] == [4, 5]

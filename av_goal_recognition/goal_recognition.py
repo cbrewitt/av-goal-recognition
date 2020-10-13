@@ -28,19 +28,14 @@ class BayesianGoalRecogniser:
     def goal_probabilities(self, frames, agent_id):
         state_history = [f.agents[agent_id] for f in frames]
         current_state = state_history[-1]
-        lanelet_sequence = self.feature_extractor.get_lanelet_sequence(state_history)
-        current_lanelet = lanelet_sequence[-1]
-
+        goal_routes = self.feature_extractor.get_goal_routes(current_state, self.scenario.config.goals)
         goal_probs = []
-        for goal_idx in range(len(self.scenario.config.goals)):
-
-            goal_loc = self.scenario.config.goals[goal_idx]
-            route = self.feature_extractor.route_to_goal(current_lanelet, goal_loc)
+        for goal_idx, route in enumerate(goal_routes):
             if route is None:
                 goal_prob = 0
             else:
                 # get un-normalised "probability"
-                prior = self.get_goal_prior(goal_idx, current_state, route)
+                prior = self.get_goal_prior(goal_idx, state_history[0], route)
                 if prior == 0:
                     goal_prob = 0
                 else:
@@ -183,12 +178,15 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
                 if dt_training_set.shape[0] > 0:
                     X = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
                     y = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
-                    clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
-                        min_samples_leaf=min_samples_leaf, max_depth=max_depth, class_weight='balanced',
-                        ccp_alpha=ccp_alpha, criterion=criterion)
-                    clf = clf.fit(X, y)
-                    goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
-                    goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
+                    if y.all() or not y.any():
+                        goal_tree = Node(0.5)
+                    else:
+                        clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
+                            min_samples_leaf=min_samples_leaf, max_depth=max_depth, class_weight='balanced',
+                            ccp_alpha=ccp_alpha, criterion=criterion)
+                        clf = clf.fit(X, y)
+                        goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                        goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
                 else:
                     goal_tree = Node(0.5)
 
