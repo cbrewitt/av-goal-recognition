@@ -61,6 +61,7 @@ class BayesianGoalRecogniser:
         unique_samples = dataset[['episode', 'agent_id', 'frame_id', 'true_goal',
                                   'true_goal_type', 'fraction_observed']].drop_duplicates()
         model_predictions = []
+        predicted_goal_types = []
         model_probs = []
         min_probs = []
         max_probs = []
@@ -82,6 +83,8 @@ class BayesianGoalRecogniser:
                                       / goals.model_prob.shape[0])
             norm_entropy = goal_prob_entropy / uniform_entropy
             model_prediction = goals['possible_goal'].loc[idx]
+            predicted_goal_type = goals['goal_type'].loc[idx]
+            predicted_goal_types.append(predicted_goal_type)
             model_predictions.append(model_prediction)
             model_prob = goals['model_prob'].loc[idx]
             max_prob = goals.model_prob.max()
@@ -93,6 +96,7 @@ class BayesianGoalRecogniser:
             model_norm_entropys.append(norm_entropy)
 
         unique_samples['model_prediction'] = model_predictions
+        unique_samples['predicted_goal_type'] = predicted_goal_types
         unique_samples['model_probs'] = model_probs
         unique_samples['max_probs'] = max_probs
         unique_samples['min_probs'] = min_probs
@@ -161,8 +165,8 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
         raise NotImplementedError
 
     @classmethod
-    def train(cls, scenario_name, alpha=1, ccp_alpha=0, criterion='gini', min_samples_leaf=1,
-              max_leaf_nodes=None, max_depth=None, training_set=None):
+    def train(cls, scenario_name, alpha=1, criterion='gini', min_samples_leaf=1,
+              max_leaf_nodes=None, max_depth=None, training_set=None, ccp_alpha=0):
         decision_trees = {}
         scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
         if training_set is None:
@@ -183,7 +187,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
                     else:
                         clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
                             min_samples_leaf=min_samples_leaf, max_depth=max_depth, class_weight='balanced',
-                            ccp_alpha=ccp_alpha, criterion=criterion)
+                            criterion=criterion, ccp_alpha=ccp_alpha)
                         clf = clf.fit(X, y)
                         goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
                         goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
@@ -191,6 +195,91 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
                     goal_tree = Node(0.5)
 
                 decision_trees[goal_idx][goal_type] = goal_tree
+        return cls(goal_priors, scenario, decision_trees)
+
+    @classmethod
+    def train_grid_search(cls, scenario_name, alpha=1,
+              min_samples_leaf=20, max_depth=None, training_set=None, validation_set=None):
+        """
+        Do a hyperparameter grid search for each decision tree
+        Hyperparameters - num leaf nodes (or depth?), splitter (gini/entropy)
+
+        """
+        decision_trees = {}
+        scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
+        if training_set is None:
+            training_set = get_dataset(scenario_name, subset='train')
+        if validation_set is None:
+            validation_set = get_dataset(scenario_name, subset='valid')
+        goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
+
+        for goal_idx in goal_priors.true_goal.unique():
+            decision_trees[goal_idx] = {}
+            goal_types = goal_priors.loc[goal_priors.true_goal == goal_idx].true_goal_type.unique()
+            for goal_type in goal_types:
+                dt_training_set = training_set.loc[(training_set.possible_goal == goal_idx)
+                                                   & (training_set.goal_type == goal_type)]
+                dt_validation_set = validation_set.loc[(validation_set.possible_goal == goal_idx)
+                                                   & (validation_set.goal_type == goal_type)]
+
+                best_tree = None
+                if dt_training_set.shape[0] > 0:
+                    X_train = dt_training_set[FeatureExtractor.feature_names.keys()].to_numpy()
+                    y_train = (dt_training_set.possible_goal == dt_training_set.true_goal).to_numpy()
+                    train_prior = float(goal_priors.loc[(goal_priors.true_goal == goal_idx)
+                                                  & (goal_priors.true_goal_type == goal_type), 'prior'])
+
+                    if not(y_train.all() or not y_train.any()):
+                        # do grid search in here
+                        X_valid = dt_validation_set[FeatureExtractor.feature_names.keys()].to_numpy()
+                        y_valid = (dt_validation_set.possible_goal == dt_validation_set.true_goal).to_numpy()
+
+                        max_leaf_nodes_grid = np.unique(np.round(np.logspace(0.3, 3, 30))).astype(int)
+                        # np.unique(np.round(np.logspace(0.4, 2, 30))).astype(int)
+                        best_max_leaf_nodes = None
+
+                        best_accuracy = 0
+                        best_cross_entropy = np.inf
+
+                        for max_leaf_nodes in max_leaf_nodes_grid:
+                            clf = tree.DecisionTreeClassifier(max_leaf_nodes=max_leaf_nodes,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              max_depth=max_depth,
+                                                              criterion='gini')
+                            clf = clf.fit(X_train, y_train)
+                            goal_tree = Node.from_sklearn(clf, FeatureExtractor.feature_names)
+                            goal_tree.set_values(dt_training_set, goal_idx, alpha=alpha)
+
+                            model_probs = []
+
+                            for index, row in dt_validation_set.iterrows():
+                                features = row[FeatureExtractor.feature_names]
+                                model_likelihood = goal_tree.traverse(features)
+                                model_prob = model_likelihood * train_prior / (model_likelihood * train_prior
+                                                                               + (1 - model_likelihood) * (
+                                                                                           1 - train_prior))
+                                model_probs.append(model_prob)
+
+                            model_probs = np.array(model_probs)
+                            valid_pred = model_probs > 0.5
+                            accuracy = np.mean(valid_pred == y_valid)
+                            cross_entropy = -np.mean(y_valid * np.log(model_probs) + (1 - y_valid) * np.log(1 - model_probs))
+
+                            if cross_entropy < best_cross_entropy:
+                                best_max_leaf_nodes = max_leaf_nodes
+                                best_tree = goal_tree
+                                best_accuracy = accuracy
+
+                        print('Best max leaf nodes for {} G{} {} is {}'.format(
+                            scenario_name, goal_idx, goal_type, best_max_leaf_nodes))
+                        print('Best accuracy for {} G{} {} is {}'.format(
+                            scenario_name, goal_idx, goal_type, best_accuracy))
+                        print('Best cross entropy for {} G{} {} is {}'.format(
+                            scenario_name, goal_idx, goal_type, best_accuracy))
+
+                if best_tree is None:
+                    best_tree = Node(0.5)
+                decision_trees[goal_idx][goal_type] = best_tree
         return cls(goal_priors, scenario, decision_trees)
 
     def save(self, scenario_name):

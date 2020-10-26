@@ -13,10 +13,8 @@ def get_dataset(scenario_name, subset='train', features=True):
     episode_training_sets = []
 
     for episode_idx in range(len(scenario.config.episodes)):
-        print('episode {}'.format(episode_idx))
         episode_training_set = pd.read_csv(
             get_data_dir() + '{}_e{}_{}.csv'.format(scenario_name, episode_idx, subset))
-        print('training samples: {}'.format(episode_training_set.shape[0]))
         episode_training_set['episode'] = episode_idx
         episode_training_sets.append(episode_training_set)
     training_set = pd.concat(episode_training_sets)

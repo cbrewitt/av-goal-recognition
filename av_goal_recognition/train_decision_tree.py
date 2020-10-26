@@ -11,7 +11,5 @@ else:
     scenario_names = [args.scenario]
 
 for scenario_name in scenario_names:
-    model = DecisionTreeGoalRecogniser.train(scenario_name, criterion='gini', alpha=1,
-                                             max_leaf_nodes=7, min_samples_leaf=20)
+    model = DecisionTreeGoalRecogniser.train(scenario_name, min_samples_leaf=20, max_leaf_nodes=7)
     model.save(scenario_name)
-
