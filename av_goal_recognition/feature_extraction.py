@@ -125,7 +125,7 @@ class FeatureExtractor:
 
             lanelet must be:
                 * close (radius 3m)
-                * direction within 90 degrees of car
+                * direction within 90 degrees of car (reduce this?)
                 * can pass
                 * goal is reachable from
 
@@ -146,10 +146,12 @@ class FeatureExtractor:
         # filter out invalid lanelets
         possible_lanelets = []
         for idx, lanelet in enumerate(nearby_lanelets):
-            if (angle_diffs[idx] < np.pi / 2
+            if (angle_diffs[idx] < np.pi / 4
                     and dists_from_point[idx] < radius
                     and self.traffic_rules.canPass(lanelet)):
                 possible_lanelets.append(idx)
+
+
 
         # find best lanelet for each goal
         goal_lanelets = []

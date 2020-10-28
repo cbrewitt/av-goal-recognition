@@ -21,7 +21,7 @@ def add_tree(root, name, features, solver):
             elif isinstance(node.decision, BinaryDecision):
                 true_child_expr = And(parent_expr, feature)
             else:
-                raise TypeError('unrecognised decision type')
+                raise TypeError('invalid decision type')
 
             false_child_expr = And(parent_expr, Not(true_child_expr))
 
@@ -50,11 +50,23 @@ def add_goal_tree_model(reachable_goals, solver, model):
                                             & (model.goal_priors.true_goal_type == goal_type), 'prior'])
         goal_features = add_features(goal_idx)
         likelihood = add_tree(model.decision_trees[goal_idx][goal_type],
-                              '{}_{}'.format(goal_idx, goal_type), goal_features, solver)
+                              'likelihood_{}_{}'.format(goal_idx, goal_type), goal_features, solver)
         prob = likelihood * prior
         probs[goal_idx] = prob
         features[goal_idx] = goal_features
-    return features, probs
+
+    # get normalised probabilities
+    prob_sum = 0
+    for prob in probs.values():
+        prob_sum = prob_sum + prob
+
+    probs_norm = {}
+    for goal_idx, goal_type in reachable_goals:
+        prob_norm = Real('prob_{}_{}'.format(goal_idx, goal_type))
+        probs_norm[goal_idx] = prob_norm
+        solver.add(prob_norm == probs[goal_idx] / prob_sum)
+
+    return features, probs_norm
 
 
 def main():

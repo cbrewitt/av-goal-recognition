@@ -47,6 +47,17 @@ class BayesianGoalRecogniser:
         return goal_probs
 
     def batch_goal_probabilities(self, dataset):
+        """
+
+        Args:
+            dataset: DataFrame with columns:
+                path_to_goal_length,in_correct_lane,speed,acceleration,angle_in_lane,vehicle_in_front_dist,
+                vehicle_in_front_speed,oncoming_vehicle_dist,goal_type,agent_id,possible_goal,true_goal,true_goal_type,
+                frame_id,initial_frame_id,fraction_observed
+
+        Returns:
+
+        """
         dataset = dataset.copy()
         model_likelihoods = []
 
