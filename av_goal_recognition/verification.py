@@ -32,25 +32,25 @@ def add_tree(root, name, features, solver):
     return likelihood
 
 
-def add_features(goal_name):
+def add_features(goal_name, suffix=''):
     goal_name = str(goal_name)
     features = {}
     feature_types = {'scalar': Real, 'binary': Bool}
 
     for feature_name, feature_type in FeatureExtractor.feature_names.items():
-        features[feature_name] = feature_types[feature_type](feature_name + '_' + goal_name)
+        features[feature_name] = feature_types[feature_type](feature_name + '_' + goal_name + suffix)
     return features
 
 
-def add_goal_tree_model(reachable_goals, solver, model):
+def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
     probs = {}
     features = {}
     for goal_idx, goal_type in reachable_goals:
         prior = float(model.goal_priors.loc[(model.goal_priors.true_goal == goal_idx)
                                             & (model.goal_priors.true_goal_type == goal_type), 'prior'])
-        goal_features = add_features(goal_idx)
+        goal_features = add_features(goal_idx, suffix)
         likelihood = add_tree(model.decision_trees[goal_idx][goal_type],
-                              'likelihood_{}_{}'.format(goal_idx, goal_type), goal_features, solver)
+                              'likelihood_{}_{}{}'.format(goal_idx, goal_type, suffix), goal_features, solver)
         prob = likelihood * prior
         probs[goal_idx] = prob
         features[goal_idx] = goal_features
@@ -62,7 +62,7 @@ def add_goal_tree_model(reachable_goals, solver, model):
 
     probs_norm = {}
     for goal_idx, goal_type in reachable_goals:
-        prob_norm = Real('prob_{}_{}'.format(goal_idx, goal_type))
+        prob_norm = Real('prob_{}_{}{}'.format(goal_idx, goal_type, suffix))
         probs_norm[goal_idx] = prob_norm
         solver.add(prob_norm == probs[goal_idx] / prob_sum)
 

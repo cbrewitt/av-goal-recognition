@@ -144,7 +144,7 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
         test_samples.to_csv(get_data_dir() + '{}_e{}_test.csv'.format(scenario_name, episode_idx), index=False)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Process the dataset')
     parser.add_argument('--scenario', type=str, help='Name of scenario to process', default=None)
     args = parser.parse_args()
@@ -157,3 +157,7 @@ if __name__ == '__main__':
     for scenario_name in scenarios:
         print('Processing dataset for scenario: ' + scenario_name)
         prepare_dataset(scenario_name)
+
+
+if __name__ == '__main__':
+    main()
