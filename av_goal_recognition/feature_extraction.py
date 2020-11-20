@@ -4,7 +4,7 @@ from lanelet2.core import BasicPoint2d, BoundingBox2d
 from lanelet2 import geometry
 
 from av_goal_recognition.lanelet_helpers import LaneletHelpers
-from av_goal_recognition.scenario import Frame
+from av_goal_recognition.scenario import Frame, AgentState
 
 
 class FeatureExtractor:
@@ -65,7 +65,15 @@ class FeatureExtractor:
                 'goal_type': goal_type}
 
     @staticmethod
-    def angle_in_lane(state, lanelet):
+    def angle_in_lane(state: AgentState, lanelet):
+        """
+        Get the signed angle between the vehicle heading and the lane heading
+        Args:
+            state: current state of the vehicle
+            lanelet: : current lanelet of the vehicle
+
+        Returns: angle in radians
+        """
         lane_heading = LaneletHelpers.heading_at(lanelet, state.point)
         angle_diff = np.diff(np.unwrap([lane_heading, state.heading]))[0]
         return angle_diff
@@ -119,7 +127,7 @@ class FeatureExtractor:
                 matching_lanelets.append(lanelet)
         return matching_lanelets
 
-    def get_goal_routes(self, state, goals):
+    def get_goal_routes(self, state: AgentState, goals):
         """
             get most likely current lanelet and corresponding route for each goal
 
@@ -150,8 +158,6 @@ class FeatureExtractor:
                     and dists_from_point[idx] < radius
                     and self.traffic_rules.canPass(lanelet)):
                 possible_lanelets.append(idx)
-
-
 
         # find best lanelet for each goal
         goal_lanelets = []
