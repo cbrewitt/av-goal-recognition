@@ -19,10 +19,23 @@ pip install -e .
 Extract the datasets into the same directory which `av-goal-recognition` is placed.
 Alternatively, edit the config files in `av-goal-recognition/scenario_config` to specify different directories.
 
-Preprocess the data and Extract features.
+Preprocess the data and Extract features:
 
 ```
 cd av_goal_recognition
 python python data_processing.py
 ```
+
+Train the decision trees:
+
+```
+python train_decision_tree.py
+```
+
+Calculate evaluation metrics on the test set:
+
+```
+python evaluate_models_from_features.py
+```
+
 
