@@ -38,4 +38,8 @@ Calculate evaluation metrics on the test set:
 python evaluate_models_from_features.py
 ```
 
+Show animation of the dataset along with inferred goal probabilities:
 
+```
+python run_track_visualization.py --scenario heckstrasse --goal_recogniser trained_trees
+```
