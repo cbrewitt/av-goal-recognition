@@ -3,12 +3,10 @@ import json
 import imageio
 import matplotlib.pyplot as plt
 import lanelet2
-from lanelet2.core import BasicPoint2d, BoundingBox2d
-from lanelet2 import geometry
+from lanelet2.core import BasicPoint2d
 
-from av_goal_recognition import map_vis_lanelet2
-from av_goal_recognition.tracks_import import read_from_csv
-from av_goal_recognition.lanelet_helpers import LaneletHelpers
+from core import map_vis_lanelet2
+from core.tracks_import import read_from_csv
 
 
 class ScenarioConfig:

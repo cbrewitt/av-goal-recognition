@@ -2,9 +2,9 @@ from collections import Counter
 
 import numpy as np
 import pytest
-from lanelet2.core import LaneletMap, Lanelet, getId, LineString3d, Point3d, Point2d, BasicPoint2d
-from av_goal_recognition.scenario import AgentState, Frame
-from av_goal_recognition.feature_extraction import FeatureExtractor
+from lanelet2.core import BasicPoint2d
+from core.scenario import AgentState, Frame
+from core.feature_extraction import FeatureExtractor
 from test.lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
 
 

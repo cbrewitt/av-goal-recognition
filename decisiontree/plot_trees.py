@@ -1,7 +1,7 @@
 import pydot
 
-from av_goal_recognition.handcrafted_trees import scenario_trees
-from av_goal_recognition.base import get_img_dir
+from decisiontree.handcrafted_trees import scenario_trees
+from core.base import get_img_dir
 
 
 def build_pydot_tree(graph, root, idx='R'):

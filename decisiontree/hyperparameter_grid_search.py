@@ -3,9 +3,9 @@ import argparse
 import pandas as pd
 import numpy as np
 
-from av_goal_recognition.base import get_data_dir
-from av_goal_recognition.data_processing import get_dataset
-from av_goal_recognition.goal_recognition import TrainedDecisionTrees
+from core.base import get_data_dir
+from core.data_processing import get_dataset
+from decisiontree.dt_goal_recogniser import TrainedDecisionTrees
 
 parser = argparse.ArgumentParser(description='Hyperparameter grid search')
 parser.add_argument('--slice', type=str, help='results file name', default=None)

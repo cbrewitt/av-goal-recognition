@@ -22,19 +22,21 @@ Alternatively, edit the config files in `av-goal-recognition/scenario_config` to
 Preprocess the data and Extract features:
 
 ```
-cd av_goal_recognition
-python python data_processing.py
+cd core
+python data_processing.py
 ```
 
 Train the decision trees:
 
 ```
+cd ../decisiontree
 python train_decision_tree.py
 ```
 
 Calculate evaluation metrics on the test set:
 
 ```
+cd ../evaluation/
 python evaluate_models_from_features.py
 ```
 

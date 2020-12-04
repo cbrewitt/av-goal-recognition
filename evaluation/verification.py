@@ -1,8 +1,8 @@
 from z3 import *
 
-from av_goal_recognition.decision_tree import Node, ThresholdDecision, BinaryDecision
-from av_goal_recognition.feature_extraction import FeatureExtractor
-from av_goal_recognition.goal_recognition import HandcraftedGoalTrees, TrainedDecisionTrees
+from decisiontree.decision_tree import Node, ThresholdDecision, BinaryDecision
+from core.feature_extraction import FeatureExtractor
+from decisiontree.dt_goal_recogniser import TrainedDecisionTrees
 
 
 def add_tree(root, name, features, solver):

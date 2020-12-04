@@ -2,8 +2,7 @@ import pandas as pd
 import json
 import os
 
-from av_goal_recognition.base import get_data_dir, get_dt_config_dir
-from av_goal_recognition.goal_recognition import DecisionTreeGoalRecogniser
+from core.base import get_data_dir, get_dt_config_dir
 
 
 def main():

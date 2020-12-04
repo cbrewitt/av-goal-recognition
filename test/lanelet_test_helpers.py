@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
-from lanelet2.core import LaneletMap, Lanelet, getId, LineString3d, Point3d, Point2d, BasicPoint2d, AttributeMap
-from lanelet2.projection import UtmProjector
-import lanelet2
-from av_goal_recognition.lanelet_helpers import LaneletHelpers
+from lanelet2.core import LaneletMap, Lanelet, getId, LineString3d, Point3d, AttributeMap
+from core.lanelet_helpers import LaneletHelpers
 
 
 def tuple_list_to_ls(tuple_list):

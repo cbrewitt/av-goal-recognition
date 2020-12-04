@@ -1,5 +1,5 @@
 import pandas as pd
-from av_goal_recognition.data_processing import get_dataset
+from core.data_processing import get_dataset
 
 scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg']
 dataset_names = ['train', 'valid', 'test']

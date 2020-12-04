@@ -3,10 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-from av_goal_recognition.base import get_scenario_config_dir, get_data_dir
-from av_goal_recognition.data_processing import get_dataset
-from av_goal_recognition.goal_recognition import PriorBaseline, HandcraftedGoalTrees, TrainedDecisionTrees
-from av_goal_recognition.scenario import Scenario
+from core.base import get_scenario_config_dir
+from core.data_processing import get_dataset
+from decisiontree.dt_goal_recogniser import TrainedDecisionTrees
+from goalrecognition.goal_recognition import PriorBaseline
+from core.scenario import Scenario
 
 
 def main():

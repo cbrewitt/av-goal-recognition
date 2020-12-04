@@ -3,9 +3,9 @@ import argparse
 from lanelet2.core import BasicPoint2d
 import matplotlib.pyplot as plt
 
-from av_goal_recognition.feature_extraction import FeatureExtractor
-from av_goal_recognition.scenario import Scenario
-from av_goal_recognition.lanelet_helpers import LaneletHelpers
+from core.feature_extraction import FeatureExtractor
+from core.scenario import Scenario
+from core.lanelet_helpers import LaneletHelpers
 
 
 def validate_scenario(scenario: Scenario):

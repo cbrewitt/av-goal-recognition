@@ -1,11 +1,10 @@
 import argparse
 
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from av_goal_recognition.feature_extraction import FeatureExtractor, GoalDetector
-from av_goal_recognition.scenario import Scenario
-from av_goal_recognition.base import get_data_dir, get_scenario_config_dir
+from core.feature_extraction import FeatureExtractor, GoalDetector
+from core.scenario import Scenario
+from core.base import get_data_dir, get_scenario_config_dir
 
 
 def get_dataset(scenario_name, subset='train', features=True):

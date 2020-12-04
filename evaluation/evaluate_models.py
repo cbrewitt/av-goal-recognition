@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
 
-from av_goal_recognition.base import get_scenario_config_dir, get_data_dir
-from av_goal_recognition.data_processing import get_dataset
-from av_goal_recognition.goal_recognition import PriorBaseline, HandcraftedGoalTrees, TrainedDecisionTrees
-from av_goal_recognition.scenario import Scenario
+from core.base import get_scenario_config_dir, get_data_dir
+from core.data_processing import get_dataset
+from decisiontree.dt_goal_recogniser import HandcraftedGoalTrees, TrainedDecisionTrees
+from goalrecognition.goal_recognition import PriorBaseline
+from core.scenario import Scenario
 
 scenario_name = 'heckstrasse'
 scenario = Scenario.load(get_scenario_config_dir() + scenario_name + '.json')
@@ -40,7 +41,6 @@ for dataset_name in dataset_names:
         log_predictions = np.log(model_predictions)
         target_predictions = model_predictions[np.arange(model_predictions.shape[0]), targets]
 
-        # TODO: figure out a way of not having zeroed predictions - consider multiple possible current lanelets
         cross_entropy = -np.mean(np.log(target_predictions[target_predictions!=0]))
 
         accuracies.loc[model_name, dataset_name] = accuracy

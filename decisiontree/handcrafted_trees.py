@@ -1,5 +1,5 @@
 import numpy as np
-from av_goal_recognition.decision_tree import Node, ThresholdDecision, BinaryDecision
+from decisiontree.decision_tree import Node, ThresholdDecision, BinaryDecision
 
 scenario_trees = {'heckstrasse':
                       {0: {'straight-on':

@@ -1,8 +1,8 @@
 import argparse
 import json
 
-from av_goal_recognition.base import get_dt_config_dir
-from av_goal_recognition.goal_recognition import DecisionTreeGoalRecogniser
+from core.base import get_dt_config_dir
+from decisiontree.dt_goal_recogniser import DecisionTreeGoalRecogniser
 
 
 def main():

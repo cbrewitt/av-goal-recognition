@@ -3,8 +3,8 @@ import lanelet2
 from lanelet2.core import BasicPoint2d, BoundingBox2d
 from lanelet2 import geometry
 
-from av_goal_recognition.lanelet_helpers import LaneletHelpers
-from av_goal_recognition.scenario import Frame, AgentState
+from core.lanelet_helpers import LaneletHelpers
+from core.scenario import AgentState
 
 
 class FeatureExtractor:

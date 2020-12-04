@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 from z3 import *
 
-from av_goal_recognition.decision_tree import Node, BinaryDecision, ThresholdDecision
-from av_goal_recognition.goal_recognition import DecisionTreeGoalRecogniser
-from av_goal_recognition.scenario import Scenario, ScenarioConfig, Frame, AgentState
-from av_goal_recognition.verification import add_tree, add_goal_tree_model
+from decisiontree.decision_tree import Node, BinaryDecision, ThresholdDecision
+from goalrecognition.goal_recognition import DecisionTreeGoalRecogniser
+from core.scenario import Scenario, ScenarioConfig, Frame, AgentState
+from evaluation.verification import add_goal_tree_model
 from test.lanelet_test_helpers import get_test_map
 
 

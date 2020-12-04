@@ -7,12 +7,13 @@ import sys
 import glob
 import argparse
 
-from av_goal_recognition.base import get_scenario_config_dir
-from av_goal_recognition.scenario import Scenario
+from core.base import get_scenario_config_dir
+from core.scenario import Scenario
 from loguru import logger
-from av_goal_recognition.tracks_import import read_from_csv
-from av_goal_recognition.track_visualizer import TrackVisualizer
-from av_goal_recognition.goal_recognition import PriorBaseline, TrainedDecisionTrees, HandcraftedGoalTrees
+from core.tracks_import import read_from_csv
+from core.track_visualizer import TrackVisualizer
+from decisiontree.dt_goal_recogniser import TrainedDecisionTrees, HandcraftedGoalTrees
+from goalrecognition.goal_recognition import PriorBaseline
 
 
 def create_args():

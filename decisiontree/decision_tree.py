@@ -3,7 +3,7 @@ import pickle
 import pydot
 from sklearn.tree import _tree
 
-from av_goal_recognition.feature_extraction import FeatureExtractor
+from core.feature_extraction import FeatureExtractor
 
 
 class Node:

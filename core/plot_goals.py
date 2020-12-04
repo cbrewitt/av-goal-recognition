@@ -1,8 +1,7 @@
-import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-from av_goal_recognition.base import get_scenario_config_dir
-from av_goal_recognition.scenario import ScenarioConfig, Scenario
+from core.base import get_scenario_config_dir
+from core.scenario import Scenario
 
 
 parser = argparse.ArgumentParser(description='create a plot of lanelets and goals')
