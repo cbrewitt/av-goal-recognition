@@ -84,6 +84,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
                     scenario_name, goal_idx, goal_type))
         with open(get_data_dir() + 'trained_trees_{}.p'.format(scenario_name), 'wb') as f:
             pickle.dump(self.decision_trees, f)
+        self.goal_priors.to_csv(get_data_dir() + '{}_priors.csv'.format(scenario_name), index=False)
 
 
 class HandcraftedGoalTrees(DecisionTreeGoalRecogniser):
