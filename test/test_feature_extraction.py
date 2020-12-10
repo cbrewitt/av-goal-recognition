@@ -5,7 +5,7 @@ import pytest
 from lanelet2.core import BasicPoint2d
 from core.scenario import AgentState, Frame
 from core.feature_extraction import FeatureExtractor
-from test.lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
+from lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
 
 
 def get_feature_extractor():
@@ -23,14 +23,6 @@ def test_angle_in_lane_curved():
     state = AgentState(0, 1.5, 1.0, 0, 0, np.pi/2, 0, 0, 0, 0, 0, 0)
     lanelet = get_test_lanelet_curved()
     assert FeatureExtractor.angle_in_lane(state, lanelet) == pytest.approx(np.pi/4)
-
-
-def test_reachable_goals():
-    feature_extractor = get_feature_extractor()
-    goals = [(3.5, 0.5), (3.0, 2.5)]
-    start_lanelet = feature_extractor.lanelet_map.laneletLayer.get(1)
-    reachable_goals = feature_extractor.reachable_goals(start_lanelet, goals)
-    assert list(reachable_goals.keys()) == [0, 1]
 
 
 def test_route_to_goal_straight():
@@ -205,13 +197,15 @@ def test_get_goals_current_lanelets():
     feature_extractor = get_feature_extractor()
     goals = [(3.5, 0.5)]
     state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    current_lanelets = feature_extractor.get_goal_routes(state, goals)
+    routes = feature_extractor.get_goal_routes(state, goals)
+    current_lanelets = [r.shortestPath()[0] for r in routes]
     assert [l.id for l in current_lanelets] == [1]
 
 
 def test_get_goals_current_lanelets_multiple():
     feature_extractor = get_feature_extractor()
     goals = [(3.5, 1.5), (3.0, 2.5)]
-    state = AgentState(0, 2.2, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-    current_lanelets = feature_extractor.get_goal_routes(state, goals)
+    state = AgentState(0, 2.2, 1.5, 0, 0, 0.1, 0, 0, 0, 0, 0, 0)
+    routes = feature_extractor.get_goal_routes(state, goals)
+    current_lanelets = [r.shortestPath()[0] for r in routes]
     assert [l.id for l in current_lanelets] == [4, 5]
