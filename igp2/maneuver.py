@@ -9,15 +9,15 @@ class ManeuverConfig:
 
     @property
     def termination_point(self):
-        return self.config_dict.get('termination_point')
+        return self.config_dict.get('termination_point', None)
 
     @property
-    def initial_lanelet(self):
-        return self.config_dict.get('initial_lanelet')
+    def initial_lanelet_id(self):
+        return self.config_dict.get('initial_lanelet_id', None)
 
     @property
-    def final_lanelet(self):
-        return self.config_dict.get('final_lanelet')
+    def final_lanelet_id(self):
+        return self.config_dict.get('final_lanelet_id', None)
 
 
 class Maneuver(ABC):
@@ -45,10 +45,18 @@ class FollowLane(Maneuver):
         return feature_extractor.get_current_lanelet(frames[-1]) is not None
 
     def trajectory(self, frames, feature_extractor: FeatureExtractor):
-        route = feature_extractor.routing_graph.getRoute(self.man_config.initial_lanelet,
-                                                         self.man_config.final_lanelet)
-        path = route.shortestPath()
-        points = []
+        initial_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.initial_lanelet_id)
+        final_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.final_lanelet_id)
+        route = feature_extractor.routing_graph.getRoute(initial_lanelet, final_lanelet)
+        path = route.shortestPath() # TODO do not allow lane changes
+        final_point = path[-1].centerline[-1]
+        points = [(p.x, p.y) for l in path for p in list(l.centerline)[:-1]] \
+                 + [(final_point.x, final_point.y)]
+        x, y = list(zip(*points))
+
+        # TODO represent as linestring and project start/end points
+        #TODO scipy.interpolate.CubicSpline can take deriv values at end
+
         pass
         #TODO include current lanelet with trajectory?
         #TODO simulate forward other vehilcles base on cvel lane follow?
