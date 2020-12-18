@@ -4,6 +4,7 @@ import imageio
 import matplotlib.pyplot as plt
 import lanelet2
 from lanelet2.core import BasicPoint2d
+from shapely.geometry import Point
 
 from core import map_vis_lanelet2
 from core.tracks_import import read_from_csv
@@ -153,6 +154,14 @@ class AgentState:
     @property
     def point(self):
         return BasicPoint2d(self.x, self.y)
+
+    @property
+    def tuple_point(self):
+        return self.x, self.y
+
+    @property
+    def shapely_point(self):
+        return Point(self.x, self.y)
 
     def plot(self):
         plt.plot(self.x, self.y, 'yo')

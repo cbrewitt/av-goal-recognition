@@ -2,10 +2,10 @@ import pytest
 import numpy as np
 from lanelet2.core import BasicPoint2d
 from core.lanelet_helpers import LaneletHelpers
-from test.lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_following_lanelets, \
+from lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_following_lanelets, \
     get_adjacent_lanelets
 
-from test.lanelet_test_helpers import get_test_map
+from lanelet_test_helpers import get_test_map
 
 
 def test_dist_along():
