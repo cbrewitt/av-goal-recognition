@@ -169,9 +169,11 @@ class Frame:
 
 class Episode:
 
-    def __init__(self, agents, frames):
+    def __init__(self, agents, frames, static_meta=None, recordings_meta=None):
         self.agents = agents
         self.frames = frames
+        self.static_meta = static_meta
+        self.recordings_meta = recordings_meta
 
 
 class EpisodeLoader:
@@ -212,7 +214,7 @@ class IndEpisodeLoader(EpisodeLoader):
             agent = Agent(state_history, agent_meta)
             agents[agent_meta.agent_id] = agent
 
-        return Episode(agents, frames)
+        return Episode(agents, frames, static_info, meta_info)
 
     @staticmethod
     def _state_from_tracks(track, idx):
