@@ -1,6 +1,7 @@
 import os
 import argparse
 import dill
+import tqdm
 
 from core.base import get_scenario_config_dir, get_data_dir
 from core.feature_extraction import GoalDetector
@@ -11,14 +12,18 @@ from precog.ind_util import InDConfig, InDMultiagentDatum
 def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, samples_per_trajectory=10):
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
     episodes = scenario.load_episodes()
+
+    # Used for outputting incremental files for PRECOG processing
+    count = 0
+
     for episode_idx, episode in enumerate(episodes):
-        cfg = InDConfig(episode.static_meta)
+        cfg = InDConfig(episode.recordings_meta)
 
         training_samples_list = []
         validation_samples_list = []
         test_samples_list = []
 
-        print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
+        print('Episode {}/{}'.format(episode_idx + 1, len(episodes)))
         num_frames = len(episode.frames)
 
         training_set_cutoff_frame = int(num_frames * train_fraction)
@@ -37,9 +42,10 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
                     trimmed_trajectory = agent.state_history[0:final_goal_frame_idx]
                     goals[agent_id] = agent_goals[-1]
                     trimmed_trajectories[agent_id] = trimmed_trajectory
+        print("Finished preparing trajectories")
 
-        for agent_idx, (agent_id, trajectory) in enumerate(trimmed_trajectories.items()):
-            print('agent_id {}/{}'.format(agent_idx, len(trimmed_trajectories) - 1))
+        for agent_idx, (agent_id, trajectory) in tqdm.tqdm(enumerate(trimmed_trajectories.items())):
+            # print('agent_id {}/{}'.format(agent_idx, len(trimmed_trajectories) - 1))
             # iterate through each sampled point in time for trajectory
 
             split_type = None
@@ -51,11 +57,12 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
             elif trajectory[0].frame_id > validation_set_cuttoff_frame:
                 split_type = "test"
 
-            for sample in trajectory:
-                datum = InDMultiagentDatum.from_ind_trajectory(trajectory)
+            datum = InDMultiagentDatum.from_ind_trajectory(agent_id, trajectory, cfg)
 
-                with open(os.path.join(get_data_dir(), "precog", split_type, "ma_datum_{count:06d}.dill"), "wb") as f:
+            for data in datum:
+                with open(os.path.join(get_data_dir(), "precog", split_type, f"ma_datum_{count:06d}.dill"), "wb") as f:
                     dill.dump(datum, f)
+                count += 1
 
 
 def main():
