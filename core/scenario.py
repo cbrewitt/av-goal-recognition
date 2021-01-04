@@ -121,6 +121,9 @@ class Agent:
         y = [s.y for s in self.state_history]
         plt.plot(x, y, *args, **kwargs)
 
+    def __str__(self):
+        return f"ID{self.agent_id}; T{self.initial_frame}-{self.final_frame}"
+
 
 class AgentMetadata:
 

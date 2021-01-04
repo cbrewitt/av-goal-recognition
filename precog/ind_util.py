@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 
-from core.scenario import Frame
+from core.scenario import Episode
 
 
 class InDConfig:
@@ -28,8 +28,9 @@ class InDConfig:
         self.past_horizon_length = int(round(self.past_horizon_seconds * self.frame_rate))
         self.total_length = self.past_horizon_length + self.future_horizon_length
 
-        # Minimum OTHER agents visible.
-        self.min_relevant_agents = 1
+        #  Minimum OTHER agents visible. In our case all agents are OTHER agents
+        # There is no dedicated ego vehicle
+        self.min_relevant_agents = 1  # A
 
         #  Configuration for temporal interpolation.
         # For InD usually this is not necessary as the frame rate of the recording is high
@@ -63,41 +64,38 @@ class InDMultiagentDatum:
         self.metadata = metadata
 
     @classmethod
-    def from_ind_trajectory(cls, agent_id: int, trajectory: List[Frame], cfg: InDConfig):
-        #  Get how many segments we can extract from the trajectory
-        # given by the Tp and Tf times in the config
-        num_segments = len(trajectory) // cfg.total_length
-
-        if num_segments < 1:
-            print(f"Agent {agent_id}: Not enough frames to build segment. "
-                  f"Required: {cfg.total_length}; Got {len(trajectory)}")
-            return []
-
-        ret = []
-
-        # Makes sure that the goal frame is included
-        start_frame_idx = len(trajectory) - num_segments * cfg.total_length
-        for seg_idx in range(num_segments):
-            end_frame_idx = start_frame_idx + cfg.total_length
-            subtrajectory = trajectory[start_frame_idx:end_frame_idx]
-            ret.append(cls._process_subtrajectory(subtrajectory, cfg))
-            start_frame_idx += cfg.total_length
-
-        return ret
-
-    @classmethod
-    def _process_subtrajectory(cls, subtrajectory, cfg):
-        assert(len(subtrajectory) == cfg.total_length)
-
+    def from_ind_trajectory(cls, agents_to_include: List[int], episode: Episode,
+                            reference_frame: int, cfg: InDConfig):
+        # There is no explicit ego in the InD dataset
         player_past = []
-
-        agent_pasts = []
-
         player_future = []
+        player_yaw = None
 
-        agent_futures = []
+        all_agent_pasts = []
+        all_agent_futures = []
+        all_agent_yaws = []
 
-        agent_yaws = []
+        for agent_id in agents_to_include:
+            agent = episode.agents[agent_id]
+            local_frame = reference_frame - agent.initial_frame
+
+            agent_past_trajectory = agent.state_history[local_frame - cfg.past_horizon_length:local_frame]
+            all_agent_pasts.append([[frame.x, frame.y, 0.0] for frame in agent_past_trajectory])
+
+            agent_future_trajectory = agent.state_history[local_frame:local_frame + cfg.future_horizon_length]
+            all_agent_futures.append([[frame.x, frame.y, 0.0] for frame in agent_future_trajectory])
+
+            all_agent_yaws.append(agent.state_history[local_frame].heading)
+
+        # TODO: Use UTM coordinate frame instead?
+        # (A, Tp, d). Agent past trajectories in local frame at t=now
+        agent_pasts = np.stack(all_agent_pasts, axis=0)
+        # (A, Tf, d). Agent future trajectories in local frame at t=now
+        agent_futures = np.stack(all_agent_futures, axis=0)
+        # (A,). Agent yaws in ego frame at t=now
+        agent_yaws = np.asarray(all_agent_yaws)
+
+        assert agent_pasts.shape[0] == agent_futures.shape[0] == agent_yaws.shape[0] == len(agents_to_include)
 
         overhead_features = None
 
@@ -105,6 +103,6 @@ class InDMultiagentDatum:
 
         return cls(player_past, agent_pasts,
                    player_future, agent_futures,
-                   player_yaw=0.0, agent_yaws=agent_yaws,
-                   overhead_features=overhead_features,
-                   metadata=metadata)
+                   player_yaw, agent_yaws,
+                   overhead_features,
+                   metadata)
