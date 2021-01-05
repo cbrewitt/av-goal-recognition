@@ -320,12 +320,3 @@ class Scenario:
             axes.add_artist(circle)
             label = 'G{}'.format(idx)
             axes.annotate(label, (x, y), color='white')
-
-
-
-
-
-
-
-
-

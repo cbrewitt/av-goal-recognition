@@ -61,9 +61,7 @@ class FollowLane(Maneuver):
     def applicable(cls, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
         return feature_extractor.get_current_lanelet(frame) is not None
 
-    def get_points(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
-
-        lanelet_path = self.get_lanelet_path(feature_extractor)
+    def get_points(self, agent_id: int, frame: Frame, lanelet_path):
 
         final_point = lanelet_path[-1].centerline[-1]
         lane_points = [(p.x, p.y) for l in lanelet_path for p in list(l.centerline)[:-1]] \
@@ -112,18 +110,15 @@ class FollowLane(Maneuver):
         all_points = list(current_point.coords) + list(trimmed_points.coords) + [termination_point]
         return all_points
 
-    def get_lanelet_path(self, feature_extractor: FeatureExtractor):
+    def get_route(self, feature_extractor: FeatureExtractor):
         initial_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.initial_lanelet_id)
         final_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.final_lanelet_id)
-        route = feature_extractor.routing_graph.getRoute(initial_lanelet, final_lanelet)
+        route = feature_extractor.routing_graph.getRoute(initial_lanelet, final_lanelet, withLaneChanges=False)
         assert route is not None, 'no route found from lanelet {} to {}'.format(
             initial_lanelet.id, final_lanelet.id)
-        path = route.shortestPath() # TODO do not allow lane changes
-        return path
+        return route
 
-    def get_path(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
-        # generate and array of evenly spaced points
-        points = self.get_points(agent_id, frame, feature_extractor)
+    def get_path(self, agent_id: int, frame: Frame, points):
         points = np.array(points)
         heading = frame.agents[agent_id].heading
         initial_direction = np.array([np.cos(heading), np.sin(heading)])
@@ -140,9 +135,22 @@ class FollowLane(Maneuver):
         path = np.vstack((cs_x(ts), cs_y(ts))).T
         return path
 
-    def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
-        path = self.get_path(agent_id, frame, feature_extractor)
+    def get_velocity(self, path, agent_id, frame, feature_extractor, route):
         velocity = self.get_curvature_velocity(path)
+
+        vehicle_in_front_id, vehicle_in_front_dist = feature_extractor.vehicle_in_front(
+            frame.agents[agent_id], route, frame)
+        if vehicle_in_front_id is not None and vehicle_in_front_dist < 15:
+            max_vel = frame.agents[vehicle_in_front_id].v_lon  # TODO what if this is zero?
+            velocity = np.minimum(velocity, max_vel)
+        return velocity
+
+    def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
+        route = self.get_route(feature_extractor)
+        lanelet_path = route.shortestPath()
+        points = self.get_points(agent_id, frame, lanelet_path)
+        path = self.get_path(agent_id, frame, points)
+        velocity = self.get_velocity(path, agent_id, frame, feature_extractor, route)
         return path, velocity
 
 
