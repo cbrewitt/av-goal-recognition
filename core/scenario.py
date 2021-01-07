@@ -262,8 +262,8 @@ class Scenario:
         origin = lanelet2.io.Origin(self.config.lat_origin, self.config.lon_origin)
         projector = lanelet2.projection.UtmProjector(origin)
         lanelet_map, err_list = lanelet2.io.loadRobust(self.config.lanelet_file, projector)
-        for error in err_list:
-            print(error)
+        # for error in err_list:
+        #     print(error)
         return lanelet_map
 
     def load_episodes(self):
