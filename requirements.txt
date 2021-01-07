@@ -7,3 +7,4 @@ shapely
 pydot
 sklearn
 scikit-image
+pytest

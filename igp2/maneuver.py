@@ -69,10 +69,11 @@ class FollowLane(Maneuver):
         lane_ls = LineString(lane_points)
 
         current_point = frame.agents[agent_id].shapely_point
-        termination_point = self.man_config.termination_point
+        termination_lon = lane_ls.project(Point(self.man_config.termination_point))
+        termination_point = lane_ls.interpolate(termination_lon).coords[0]
         lat_dist = lane_ls.distance(current_point)
         current_lon = lane_ls.project(current_point)
-        termination_lon = lane_ls.project(Point(termination_point))
+
         margin = self.POINT_SPACING + 2 * lat_dist
 
         assert current_lon < lane_ls.length - margin, 'current point is past end of lane'
@@ -122,22 +123,17 @@ class FollowLane(Maneuver):
         points = np.array(points)
         heading = frame.agents[agent_id].heading
         initial_direction = np.array([np.cos(heading), np.sin(heading)])
-
         final_direction = np.diff(points[-2:], axis=0).flatten()
         final_direction = final_direction / np.linalg.norm(final_direction)
-
         t = np.concatenate(([0], np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))))
-
-        cs_x = CubicSpline(t, points[:, 0], bc_type=((1, initial_direction[0]), (1, final_direction[0])))
-        cs_y = CubicSpline(t, points[:, 1], bc_type=((1, initial_direction[1]), (1, final_direction[1])))
+        cs = CubicSpline(t, points, bc_type=((1, initial_direction), (1, final_direction)))
         num_points = int(t[-1] / self.POINT_SPACING)
         ts = np.linspace(0, t[-1], num_points)
-        path = np.vstack((cs_x(ts), cs_y(ts))).T
+        path = cs(ts)
         return path
 
     def get_velocity(self, path, agent_id, frame, feature_extractor, route):
         velocity = self.get_curvature_velocity(path)
-
         vehicle_in_front_id, vehicle_in_front_dist = feature_extractor.vehicle_in_front(
             frame.agents[agent_id], route, frame)
         if vehicle_in_front_id is not None and vehicle_in_front_dist < 15:
@@ -152,6 +148,3 @@ class FollowLane(Maneuver):
         path = self.get_path(agent_id, frame, points)
         velocity = self.get_velocity(path, agent_id, frame, feature_extractor, route)
         return path, velocity
-
-
-

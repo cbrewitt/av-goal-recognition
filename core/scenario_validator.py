@@ -16,7 +16,7 @@ def validate_scenario(scenario: Scenario):
         start_point = BasicPoint2d(*start)
         start_lanelet = feature_extractor.lanelet_at(start_point)
         route = feature_extractor.route_to_goal(start_lanelet, end)
-        if route is None:
+        if route is None or True:
             print('Failed to route from {} to {}'.format(start, end))
             debug_plot(start_lanelet, feature_extractor, scenario)
             import pdb; pdb.set_trace()

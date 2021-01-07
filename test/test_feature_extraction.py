@@ -5,7 +5,7 @@ import pytest
 from lanelet2.core import BasicPoint2d
 from core.scenario import AgentState, Frame
 from core.feature_extraction import FeatureExtractor
-from test.lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
+from lanelet_test_helpers import get_test_lanelet_straight, get_test_lanelet_curved, get_test_map
 
 
 def get_feature_extractor():

@@ -1,5 +1,4 @@
 import argparse
-
 import pandas as pd
 
 from core.feature_extraction import FeatureExtractor, GoalDetector
@@ -23,8 +22,8 @@ def get_dataset(scenario_name, subset='train', features=True):
         return training_set
     else:
         unique_training_samples = training_set[['episode', 'agent_id', 'initial_frame_id', 'frame_id',
-                                            'true_goal', 'true_goal_type', 'fraction_observed']
-                                            ].drop_duplicates().reset_index()
+                                                'true_goal', 'true_goal_type', 'fraction_observed']
+                                               ].drop_duplicates().reset_index()
         return unique_training_samples
 
 
