@@ -5,15 +5,17 @@ import pandas as pd
 from core.feature_extraction import FeatureExtractor, GoalDetector
 from core.scenario import Scenario
 from core.base import get_data_dir, get_scenario_config_dir
+from core.generate_dataset_split import load_dataset_splits
 
 
 def get_dataset(scenario_name, subset='train', features=True):
-    scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
+    data_set_splits = load_dataset_splits()
+    episode_idxes = data_set_splits[scenario_name][subset]
     episode_training_sets = []
 
-    for episode_idx in range(len(scenario.config.episodes)):
+    for episode_idx in episode_idxes:
         episode_training_set = pd.read_csv(
-            get_data_dir() + '{}_e{}_{}.csv'.format(scenario_name, episode_idx, subset))
+            get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx, subset))
         episode_training_set['episode'] = episode_idx
         episode_training_sets.append(episode_training_set)
     training_set = pd.concat(episode_training_sets)
@@ -36,28 +38,21 @@ def get_goal_priors(training_set, goal_types, alpha=0):
     goal_counts['goal_count'] += agent_goals.groupby(['true_goal', 'true_goal_type']).size()
     goal_counts = goal_counts.fillna(0)
 
-    # goal_counts.goal_count.plot.bar()
     # plt.show()
     goal_priors = ((goal_counts.goal_count + alpha) / (agent_goals.shape[0] + alpha * goal_counts.shape[0])).rename('prior')
     goal_priors = goal_priors.reset_index()
     return goal_priors
 
 
-def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, samples_per_trajectory=10):
+def prepare_dataset(scenario_name, samples_per_trajectory=10):
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
     episodes = scenario.load_episodes()
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
     for episode_idx, episode in enumerate(episodes):
 
-        training_samples_list = []
-        validation_samples_list = []
-        test_samples_list = []
+        samples_list = []
 
         print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
-        num_frames = len(episode.frames)
-
-        training_set_cutoff_frame = int(num_frames * train_fraction)
-        validation_set_cuttoff_frame = training_set_cutoff_frame + int(num_frames * valid_fraction)
 
         goals = {}  # key: agent id, value: goal idx
         trimmed_trajectories = {}
@@ -112,9 +107,6 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
                         if route is not None:
                             goal = scenario.config.goals[goal_idx]
 
-                            # if agent_id == 332 and state.frame_id == 21493:
-                            #     import pdb; pdb.set_trace()
-
                             features = feature_extractor.extract(agent_id, frames, goal, route)
 
                             sample = features.copy()
@@ -125,22 +117,10 @@ def prepare_dataset(scenario_name, train_fraction=0.6, valid_fraction=0.2, sampl
                             sample['frame_id'] = state.frame_id
                             sample['initial_frame_id'] = trajectory[0].frame_id
                             sample['fraction_observed'] = idx / max_idx
+                            samples_list.append(sample)
 
-                            if trajectory[-1].frame_id <= training_set_cutoff_frame:
-                                training_samples_list.append(sample)
-                            elif (trajectory[0].frame_id > training_set_cutoff_frame
-                                  and trajectory[-1].frame_id <= validation_set_cuttoff_frame):
-                                validation_samples_list.append(sample)
-                            elif trajectory[0].frame_id > validation_set_cuttoff_frame:
-                                test_samples_list.append(sample)
-
-        training_samples = pd.DataFrame(data=training_samples_list)
-        validation_samples = pd.DataFrame(data=validation_samples_list)
-        test_samples = pd.DataFrame(data=test_samples_list)
-
-        training_samples.to_csv(get_data_dir() + '{}_e{}_train.csv'.format(scenario_name, episode_idx), index=False)
-        validation_samples.to_csv(get_data_dir() + '{}_e{}_valid.csv'.format(scenario_name, episode_idx), index=False)
-        test_samples.to_csv(get_data_dir() + '{}_e{}_test.csv'.format(scenario_name, episode_idx), index=False)
+        samples = pd.DataFrame(data=samples_list)
+        samples.to_csv(get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx), index=False)
 
 
 def main():
