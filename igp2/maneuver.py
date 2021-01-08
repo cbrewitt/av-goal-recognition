@@ -33,16 +33,12 @@ class Maneuver(ABC):
     MAX_SPEED = 10
     MIN_SPEED = 3
 
-    def __init__(self, feature_extractor: FeatureExtractor, man_config: ManeuverConfig):
+    def __init__(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, man_config: ManeuverConfig):
         self.man_config = man_config
-
-    @classmethod
-    @abstractmethod
-    def applicable(cls, agent_id, frames, feature_extractor: FeatureExtractor):
-        raise NotImplementedError
+        self.trajectory = self.get_trajectory(agent_id, frame, feature_extractor)
 
     @abstractmethod
-    def get_points(self, agent_id, frames, feature_extractor: FeatureExtractor):
+    def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
         raise NotImplementedError
 
     @classmethod
@@ -54,8 +50,8 @@ class Maneuver(ABC):
 
 class FollowLane(Maneuver):
 
-    def __init__(self, feature_extractor: FeatureExtractor, man_config):
-        super().__init__(feature_extractor, man_config)
+    def __init__(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, man_config: ManeuverConfig):
+        super().__init__(agent_id, frame, feature_extractor, man_config)
 
     @classmethod
     def applicable(cls, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):

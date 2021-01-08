@@ -127,7 +127,7 @@ class FeatureExtractor:
                 matching_lanelets.append(lanelet)
         return matching_lanelets
 
-    def get_goal_routes(self, state: AgentState, goals):
+    def get_goal_routes(self, state: AgentState, goals, allow_lane_change=True):
         """
             get most likely current lanelet and corresponding route for each goal
 
