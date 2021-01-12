@@ -30,6 +30,12 @@ class LaneletHelpers:
 
     @staticmethod
     def heading_at(lanelet, point):
+        direction = LaneletHelpers.direction_at(lanelet, point)
+        heading = np.arctan2(direction[1], direction[0])
+        return heading
+
+    @staticmethod
+    def direction_at(lanelet, point):
         centerline = geometry.to2D(lanelet.centerline)
         proj_point = geometry.project(centerline, point)
         dist_along = LaneletHelpers.dist_along(lanelet, proj_point)
@@ -38,17 +44,14 @@ class LaneletHelpers:
             # get a point after current point
             next_point = geometry.interpolatedPointAtDistance(
                 centerline, dist_along + epsilon)
-            x1 = next_point.y - proj_point.y
-            x2 = next_point.x - proj_point.x
-            lane_heading = np.arctan2(x1, x2)
+            direction = [next_point.x - proj_point.x, next_point.y - proj_point.y]
         else:
             # get a point before current point
             prev_point = geometry.interpolatedPointAtDistance(
                 centerline, dist_along - epsilon)
-            x1 = proj_point.y - prev_point.y
-            x2 = proj_point.x - prev_point.x
-            lane_heading = np.arctan2(x1, x2)
-        return lane_heading
+            direction = [proj_point.x - prev_point.x, proj_point.y - prev_point.y]
+        direction = direction / np.linalg.norm(direction)
+        return direction
 
     @staticmethod
     def left_of(a, b):
@@ -102,3 +105,4 @@ class LaneletHelpers:
         ls2_shapely = cls.shapely_linestring(ls2)
         p = ls1_shapely.intersection(ls2_shapely)
         return cls.shapely_point_to_lanelet(p)
+

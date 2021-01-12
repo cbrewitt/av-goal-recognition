@@ -1,18 +1,23 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import CubicSpline
-
+from lanelet2.core import BasicPoint2d
 from shapely.geometry import LineString, Point
 from shapely.ops import split
 
 from core.feature_extraction import FeatureExtractor
-from core.scenario import Frame
+from core.lanelet_helpers import LaneletHelpers
+from core.scenario import Frame, AgentState
 from igp2.util import get_curvature
 
 
 class ManeuverConfig:
     def __init__(self, config_dict):
         self.config_dict = config_dict
+
+    @property
+    def type(self):
+        return self.config_dict.get('type')
 
     @property
     def termination_point(self):
@@ -33,9 +38,9 @@ class Maneuver(ABC):
     MAX_SPEED = 10
     MIN_SPEED = 3
 
-    def __init__(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, man_config: ManeuverConfig):
-        self.man_config = man_config
-        self.trajectory = self.get_trajectory(agent_id, frame, feature_extractor)
+    def __init__(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, config: ManeuverConfig):
+        self.config = config
+        self.path, self.velocity = self.get_trajectory(agent_id, frame, feature_extractor)
 
     @abstractmethod
     def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
@@ -47,15 +52,24 @@ class Maneuver(ABC):
         v = np.maximum(cls.MIN_SPEED, cls.MAX_SPEED * (1 - 3 * np.abs(c)))
         return v
 
+    def terminal_state(self):
+        frame_id = None
+        x, y = self.path[-1]
+        direction = self.path[-1] - self.path[-2]
+        direction = direction / np.linalg.norm(direction)
+        heading = np.arctan2(direction[1], direction[0])
+        v_lon = self.velocity[-1]
+        v_x, v_y = direction * v_lon
+        v_lat = 0
+        a_x = 0
+        a_y = 0
+        a_lon = 0
+        a_lat = 0
+        return AgentState(frame_id, x, y, v_x, v_y, heading, a_x, a_y,
+                          v_lon, v_lat, a_lon, a_lat)
+
 
 class FollowLane(Maneuver):
-
-    def __init__(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, man_config: ManeuverConfig):
-        super().__init__(agent_id, frame, feature_extractor, man_config)
-
-    @classmethod
-    def applicable(cls, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
-        return feature_extractor.get_current_lanelet(frame) is not None
 
     def get_points(self, agent_id: int, frame: Frame, lanelet_path):
 
@@ -65,7 +79,7 @@ class FollowLane(Maneuver):
         lane_ls = LineString(lane_points)
 
         current_point = frame.agents[agent_id].shapely_point
-        termination_lon = lane_ls.project(Point(self.man_config.termination_point))
+        termination_lon = lane_ls.project(Point(self.config.termination_point))
         termination_point = lane_ls.interpolate(termination_lon).coords[0]
         lat_dist = lane_ls.distance(current_point)
         current_lon = lane_ls.project(current_point)
@@ -108,8 +122,8 @@ class FollowLane(Maneuver):
         return all_points
 
     def get_route(self, feature_extractor: FeatureExtractor):
-        initial_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.initial_lanelet_id)
-        final_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.man_config.final_lanelet_id)
+        initial_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.initial_lanelet_id)
+        final_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
         route = feature_extractor.routing_graph.getRoute(initial_lanelet, final_lanelet, withLaneChanges=False)
         assert route is not None, 'no route found from lanelet {} to {}'.format(
             initial_lanelet.id, final_lanelet.id)
@@ -144,3 +158,63 @@ class FollowLane(Maneuver):
         path = self.get_path(agent_id, frame, points)
         velocity = self.get_velocity(path, agent_id, frame, feature_extractor, route)
         return path, velocity
+
+
+class Turn(FollowLane):
+    pass
+
+
+class SwitchLane(Maneuver):
+    TARGET_SITCH_LENGTH = 20
+    MIN_SWITCH_LENGTH = 5
+
+    def get_path(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
+        target_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
+
+        initial_state = frame.agents[agent_id]
+        initial_point = np.array(initial_state.tuple_point)
+        target_point = self.config.termination_point
+        dist = np.linalg.norm(target_point - initial_point)
+        initial_direction = np.array([np.cos(initial_state.heading),
+                                      np.sin(initial_state.heading)])
+        target_direction = LaneletHelpers.direction_at(target_lanelet, BasicPoint2d(*target_point))
+
+        """
+        Fit 2d cubic curve given boundary conditions at t=0 and t=1
+        boundary == A @ coeff
+        A = array([[0, 0, 0, 1],
+                   [1, 1, 1, 1],
+                   [0, 0, 1, 0],
+                   [3, 2, 1, 0]])
+        transform = np.linalg.inv(A)
+        coeff = transform @ boundary
+        """
+
+        transform = np.array([[ 2., -2.,  1.,  1.],
+                              [-3.,  3., -2., -1.],
+                              [ 0.,  0.,  1.,  0.],
+                              [ 1.,  0.,  0.,  0.]])
+        boundary = np.vstack([initial_point,
+                             target_point,
+                             initial_direction * dist,
+                             target_direction * dist])
+        coeff = transform @ boundary
+
+        # evaluate points on cubic curve
+        num_points = max(2, int(dist / self.POINT_SPACING) + 1)
+        t = np.linspace(0, 1, num_points)
+        powers = np.vstack([t ** 3, t ** 2, t ** 1, t ** 0])
+        points = powers.T @ coeff
+        return points
+
+    def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
+        path = self.get_path(agent_id, frame, feature_extractor)
+        velocity = self.get_curvature_velocity(path)  # TODO - take into account vehicle in front
+        return path, velocity
+
+
+
+
+
+
+
