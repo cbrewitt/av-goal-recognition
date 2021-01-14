@@ -21,7 +21,6 @@ class LaneletHelpers:
         points_y = [p.y for p in l.polygon2d()]
         points_y.append(points_y[0])
         plt.plot(points_x, points_y, color=color)
-        plt.plot(points_x, points_y, color=color)
 
     @staticmethod
     def dist_along(lanelet, point):
@@ -58,6 +57,10 @@ class LaneletHelpers:
         # return true if a is left of b
         return a.rightBound == b.leftBound
 
+    @classmethod
+    def adjacent(cls, a, b):
+        return cls.left_of(a, b) or cls.left_of(b, a)
+
     @staticmethod
     def follows(a, b):
         # return true if a follows b
@@ -65,7 +68,7 @@ class LaneletHelpers:
 
     @classmethod
     def connected(cls, a, b):
-        return cls.follows(a, b) or cls.follows(b, a) or cls.left_of(a, b) or cls.left_of(b, a)
+        return cls.follows(a, b) or cls.follows(b, a) or cls.adjacent(a, b)
 
     @staticmethod
     def dist_from_center(point, lanelet):

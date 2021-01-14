@@ -30,7 +30,8 @@ class FeatureExtractor:
         current_frame = frames[-1]
         current_state = current_frame.agents[agent_id]
         initial_state = frames[0].agents[agent_id]
-        current_lanelet = route.shortestPath()[0]
+        path = route.shortestPath()
+        current_lanelet = path[0]
 
         if route is None:
             route = self.route_to_goal(current_lanelet, goal)
@@ -44,7 +45,7 @@ class FeatureExtractor:
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
         goal_type = self.goal_type(initial_state, goal, route)
 
-        vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
+        vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, path, current_frame)
         if vehicle_in_front_id is None:
             vehicle_in_front_speed = 20
             vehicle_in_front_dist = 100
@@ -187,8 +188,7 @@ class FeatureExtractor:
         return goal_routes
 
     @staticmethod
-    def get_vehicles_in_front(route, frame):
-        path = route.shortestPath()
+    def get_vehicles_in_front(path, frame):
         agents = []
         for agent_id, agent in frame.agents.items():
             for lanelet in path:
@@ -224,11 +224,12 @@ class FeatureExtractor:
     @classmethod
     def path_to_goal_length(cls, state, goal, route):
         end_point = BasicPoint2d(*goal)
-        return cls.path_to_point_length(state, end_point, route)
+        path = route.shortestPath()
+        return cls.path_to_point_length(state, end_point, path)
 
     @classmethod
-    def vehicle_in_front(cls, state, route, frame):
-        vehicles_in_front = cls.get_vehicles_in_front(route, frame)
+    def vehicle_in_front(cls, state, path, frame):
+        vehicles_in_front = cls.get_vehicles_in_front(path, frame)
         min_dist = np.inf
         vehicle_in_front = None
 
@@ -242,8 +243,7 @@ class FeatureExtractor:
         return vehicle_in_front, min_dist
 
     @staticmethod
-    def path_to_point_length(state, point, route):
-        path = route.shortestPath()
+    def path_to_point_length(state, point, path):
         end_lanelet = path[-1]
         end_lanelet_dist = LaneletHelpers.dist_along(end_lanelet, point)
 

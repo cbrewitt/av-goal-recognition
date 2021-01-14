@@ -4,7 +4,7 @@ import pytest
 from core.scenario import Frame, AgentState
 from test_feature_extraction import get_feature_extractor
 
-from igp2.maneuver import FollowLane, ManeuverConfig
+from igp2.maneuver import FollowLane, ManeuverConfig, SwitchLane
 
 
 def test_follow_lane_path():
@@ -77,7 +77,8 @@ def test_get_velocity_straight():
     maneuver = FollowLane(0, frame, feature_extractor, config)
     route = maneuver.get_route(feature_extractor)
     path = np.array([[0.1, 0.5], [2.1, 0.5], [3.9, 0.5]])
-    velocity = maneuver.get_velocity(path, 0, frame, feature_extractor, route)
+    lanelet_path = route.shortestPath()
+    velocity = maneuver.get_velocity(path, 0, frame, feature_extractor, lanelet_path)
     assert np.all(velocity == np.array([10, 10, 10]))
 
 
@@ -94,7 +95,8 @@ def test_get_velocity_vehicle_ahead():
     maneuver = FollowLane(0, frame, feature_extractor, config)
     route = maneuver.get_route(feature_extractor)
     path = np.array([[0.1, 0.5], [2.1, 0.5], [3.9, 0.5]])
-    velocity = maneuver.get_velocity(path, 0, frame, feature_extractor, route)
+    lanelet_path = route.shortestPath()
+    velocity = maneuver.get_velocity(path, 0, frame, feature_extractor, lanelet_path)
     assert np.all(velocity == np.array([5, 5, 5]))
 
 
@@ -113,3 +115,35 @@ def test_follow_lane_terminal_state():
     assert terminal_state.heading == pytest.approx(0)
     assert terminal_state.v_x == pytest.approx(10)
     assert terminal_state.v_y == pytest.approx(0)
+
+
+def test_switch_lane_path():
+    feature_extractor = get_feature_extractor()
+    frame = Frame(0)
+    state = AgentState(0, 0.1, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    frame.add_agent_state(0, state)
+    config = ManeuverConfig({'termination_point': (3.9, 0.5),
+                             'initial_lanelet_id': 2,
+                             'final_lanelet_id': 3})
+    maneuver = SwitchLane(0, frame, feature_extractor, config)
+    assert np.allclose(maneuver.path[-1], [3.9, 0.5])
+    assert np.allclose(maneuver.path[0], [0.1, 1.5])
+    assert maneuver.path.shape[0] == 4
+    initial_heading = np.arctan2(*(maneuver.path[1] - maneuver.path[0])[::-1])
+    final_heading = np.arctan2(*(maneuver.path[-1] - maneuver.path[-2])[::-1])
+    assert initial_heading == pytest.approx(0, abs=np.pi/6)
+    assert final_heading == pytest.approx(0, abs=np.pi/6)
+
+
+def test_switch_lane_velocity():
+    feature_extractor = get_feature_extractor()
+    frame = Frame(0)
+    state = AgentState(0, 0.1, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    state2 = AgentState(0, 2.1, 0.5, 0, 0, 0, 0, 0, 5, 0, 0, 0)
+    frame.add_agent_state(1, state2)
+    frame.add_agent_state(0, state)
+    config = ManeuverConfig({'termination_point': (3.9, 0.5),
+                             'initial_lanelet_id': 2,
+                             'final_lanelet_id': 3})
+    maneuver = SwitchLane(0, frame, feature_extractor, config)
+    assert np.all(maneuver.velocity <= 5)

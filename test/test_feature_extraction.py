@@ -152,7 +152,8 @@ def test_get_vehicles_in_front():
     frame.add_agent_state(0, AgentState(0, 2.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     frame.add_agent_state(1, AgentState(0, 3.0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     frame.add_agent_state(2, AgentState(0, 3.0, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-    vehicles = FeatureExtractor.get_vehicles_in_front(route, frame)
+    path = route.shortestPath()
+    vehicles = FeatureExtractor.get_vehicles_in_front(path, frame)
     assert set(vehicles) == {0, 1}
 
 
@@ -169,8 +170,8 @@ def test_vehicle_in_front():
     frame.add_agent_state(2, AgentState(0, 3.0, 1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0))
 
     state = AgentState(0, 0.5, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-
-    agent_id, dist = FeatureExtractor.vehicle_in_front(state, route, frame)
+    path = route.shortestPath()
+    agent_id, dist = FeatureExtractor.vehicle_in_front(state, path, frame)
     assert agent_id == 1
     assert dist == 2
 

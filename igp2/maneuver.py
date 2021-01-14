@@ -52,6 +52,15 @@ class Maneuver(ABC):
         v = np.maximum(cls.MIN_SPEED, cls.MAX_SPEED * (1 - 3 * np.abs(c)))
         return v
 
+    def get_velocity(self, path, agent_id, frame, feature_extractor, lanelet_path):
+        velocity = self.get_curvature_velocity(path)
+        vehicle_in_front_id, vehicle_in_front_dist = feature_extractor.vehicle_in_front(
+            frame.agents[agent_id], lanelet_path, frame)
+        if vehicle_in_front_id is not None and vehicle_in_front_dist < 15:
+            max_vel = frame.agents[vehicle_in_front_id].v_lon  # TODO what if this is zero?
+            velocity = np.minimum(velocity, max_vel)
+        return velocity
+
     def terminal_state(self):
         frame_id = None
         x, y = self.path[-1]
@@ -142,21 +151,12 @@ class FollowLane(Maneuver):
         path = cs(ts)
         return path
 
-    def get_velocity(self, path, agent_id, frame, feature_extractor, route):
-        velocity = self.get_curvature_velocity(path)
-        vehicle_in_front_id, vehicle_in_front_dist = feature_extractor.vehicle_in_front(
-            frame.agents[agent_id], route, frame)
-        if vehicle_in_front_id is not None and vehicle_in_front_dist < 15:
-            max_vel = frame.agents[vehicle_in_front_id].v_lon  # TODO what if this is zero?
-            velocity = np.minimum(velocity, max_vel)
-        return velocity
-
     def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
         route = self.get_route(feature_extractor)
         lanelet_path = route.shortestPath()
         points = self.get_points(agent_id, frame, lanelet_path)
         path = self.get_path(agent_id, frame, points)
-        velocity = self.get_velocity(path, agent_id, frame, feature_extractor, route)
+        velocity = self.get_velocity(path, agent_id, frame, feature_extractor, lanelet_path)
         return path, velocity
 
 
@@ -164,13 +164,12 @@ class Turn(FollowLane):
     pass
 
 
-class SwitchLane(Maneuver):
+class SwitchLane(FollowLane):
     TARGET_SITCH_LENGTH = 20
     MIN_SWITCH_LENGTH = 5
 
     def get_path(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
         target_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
-
         initial_state = frame.agents[agent_id]
         initial_point = np.array(initial_state.tuple_point)
         target_point = self.config.termination_point
@@ -180,14 +179,14 @@ class SwitchLane(Maneuver):
         target_direction = LaneletHelpers.direction_at(target_lanelet, BasicPoint2d(*target_point))
 
         """
-        Fit 2d cubic curve given boundary conditions at t=0 and t=1
+        Fit cubic curve given boundary conditions at t=0 and t=1
         boundary == A @ coeff
+        coeff = inv(A) @ boundary
         A = array([[0, 0, 0, 1],
                    [1, 1, 1, 1],
                    [0, 0, 1, 0],
                    [3, 2, 1, 0]])
         transform = np.linalg.inv(A)
-        coeff = transform @ boundary
         """
 
         transform = np.array([[ 2., -2.,  1.,  1.],
@@ -203,18 +202,28 @@ class SwitchLane(Maneuver):
         # evaluate points on cubic curve
         num_points = max(2, int(dist / self.POINT_SPACING) + 1)
         t = np.linspace(0, 1, num_points)
-        powers = np.vstack([t ** 3, t ** 2, t ** 1, t ** 0])
-        points = powers.T @ coeff
+        powers = np.power(t.reshape((-1, 1)), np.arange(3, -1, -1))
+        points = powers @ coeff
         return points
+
+    def get_lanelet_path(self, feature_extractor: FeatureExtractor):
+        target_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
+        initial_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.initial_lanelet_id)
+
+        current_lanelet = target_lanelet
+        path = [current_lanelet]
+
+        while not LaneletHelpers.adjacent(initial_lanelet, current_lanelet):
+            previous_lanelets = feature_extractor.routing_graph.previous(current_lanelet)
+            if len(previous_lanelets) == 1:
+                current_lanelet = previous_lanelets[0]
+                path.insert(0, current_lanelet)
+            else:
+                break
+        return path
 
     def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
         path = self.get_path(agent_id, frame, feature_extractor)
-        velocity = self.get_curvature_velocity(path)  # TODO - take into account vehicle in front
+        lanelet_path = self.get_lanelet_path(feature_extractor)
+        velocity = self.get_velocity(path, agent_id, frame, feature_extractor, lanelet_path)
         return path, velocity
-
-
-
-
-
-
-
