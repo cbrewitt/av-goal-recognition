@@ -317,6 +317,22 @@ class Scenario:
             label = 'G{}'.format(idx)
             axes.annotate(label, (x, y), color='white')
 
+    @property
+    def map_wh(self):
+        max_x = -10e9
+        min_y = 10e9  # Map-y is negative decreasing
+
+        for point in self.lanelet_map.pointLayer:
+            max_x = max(point.x, max_x)
+            min_y = min(point.y, min_y)
+        return max_x, -min_y
+
+    @property
+    def display_wh(self):
+        w, h = self.map_wh
+        w_pixel = int(w / self.config.background_px_to_meter)
+        h_pixel = int(h / self.config.background_px_to_meter)
+        return w_pixel, h_pixel
 
 
 

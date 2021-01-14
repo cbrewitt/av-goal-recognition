@@ -19,3 +19,7 @@ def get_scenario_config_dir():
 
 def get_dt_config_dir():
     return get_base_dir() + '/dt_config/'
+
+
+def get_core_dir():
+    return get_base_dir() + "/core/"
