@@ -4,7 +4,7 @@ import pytest
 from core.scenario import Frame, AgentState
 from test_feature_extraction import get_feature_extractor
 
-from igp2.maneuver import FollowLane, ManeuverConfig, SwitchLane
+from igp2.maneuver import FollowLane, ManeuverConfig, SwitchLane, GiveWay
 
 
 def test_follow_lane_path():
@@ -147,3 +147,9 @@ def test_switch_lane_velocity():
                              'final_lanelet_id': 3})
     maneuver = SwitchLane(0, frame, feature_extractor, config)
     assert np.all(maneuver.velocity <= 5)
+
+
+def test_cautious_cost_deceleration():
+    path = np.array([[0, 0], [0, 1], [0, 2]])
+    velocity = GiveWay.get_const_deceleration_vel(10, 2, path)
+    assert np.all(velocity == [10, 6, 2])

@@ -31,6 +31,10 @@ class ManeuverConfig:
     def final_lanelet_id(self):
         return self.config_dict.get('final_lanelet_id', None)
 
+    @property
+    def exit_lanelet_id(self):
+        return self.config_dict.get('exit_lanelet_id', None)
+
 
 class Maneuver(ABC):
 
@@ -227,3 +231,28 @@ class SwitchLane(FollowLane):
         lanelet_path = self.get_lanelet_path(feature_extractor)
         velocity = self.get_velocity(path, agent_id, frame, feature_extractor, lanelet_path)
         return path, velocity
+
+
+class GiveWay(FollowLane):
+    MAX_ONCOMING_VEHICLE_DIST = 50
+
+    def get_velocity(self, path, agent_id, frame, feature_extractor, lanelet_path):
+        time_until_clear = self.get_time_until_clear(frame, feature_extractor)
+
+
+    def get_time_until_clear(self, frame, feature_extractor):
+        exit_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.exit_lanelet_id)
+        entry_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
+        route = feature_extractor.routing_graph.shortestPath(entry_lanelet, exit_lanelet, withLaneChanges=False)
+        oncoming_vehicles = feature_extractor.oncoming_vehicles(route, frame, max_dist=self.MAX_ONCOMING_VEHICLE_DIST)
+        if len(oncoming_vehicles) == 0:
+            time_until_clear = 0
+        else:
+            time_until_clear = max([dist/agent.v_lon for (agent, dist) in oncoming_vehicles.values()])
+        return time_until_clear
+
+    @classmethod
+    def get_const_deceleration_vel(cls, initial_vel, final_vel, path):
+        s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))])
+        velocity = initial_vel + s / s[-1] * (final_vel - initial_vel)
+        return velocity
