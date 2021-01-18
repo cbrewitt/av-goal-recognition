@@ -4,7 +4,10 @@ from typing import List
 
 import numpy as np
 import cv2 as cv
+import os
 
+from lanelet2.core import Lanelet
+from shapely.geometry import LineString
 from core.scenario import Episode, Scenario
 from core.base import get_data_dir
 
@@ -12,15 +15,18 @@ from core.base import get_data_dir
 def collapse(arr):
     ret = arr[:, :, 0]
     for layer in arr.transpose((2, 0, 1)):
-        mask = layer < 240
+        mask = layer < 255
         ret[mask] = layer[mask]
     return ret
 
 
 class InDConfig:
-    def __init__(self, recordings_meta):
+    def __init__(self, scenario, recordings_meta, draw_map = False):
         self.recordings_meta = recordings_meta
+        self.draw_map = draw_map
+
         self._create_config()
+        self.scenario_features = self._process_scenario(scenario)
 
     def _create_config(self):
         self.frame_rate = self.recordings_meta["frameRate"]  # Hz
@@ -45,10 +51,14 @@ class InDConfig:
         # Image features to include in overhead features
         self.image_features = ["surfaces", "markings", "agents"]
 
-        self.image_colors = {
-            "background": 255,
+        self.vehicle_colors = {
             "car": 0,
             "truck": 0,
+            "truck_bus": 0
+        }
+
+        self.image_colors = {
+            "background": 255,
             "walkway": 200,
             "exit": 180,
             "road": 63,
@@ -58,6 +68,13 @@ class InDConfig:
             "vegetation": 100,
             "keepout": 100
         }
+
+        # Space between dashed markings and length of dashes in metres
+        self.dash_space = 2
+        self.marking_length = 2
+        self.marking_color = 240
+        self.arrow_thickness = 2
+        self.marking_thickness = 1
 
         #  Configuration for temporal interpolation.
         # For InD usually this is not necessary as the frame rate of the recording is high
@@ -77,8 +94,113 @@ class InDConfig:
                                              self.future_horizon_seconds + self.target_sample_frequency_future,
                                              self.target_sample_frequency_future)
 
+    def _process_scenario(self, scenario):
+        features_list = []
+
+        pavement_layer = self._get_surfaces_layer(scenario)
+        features_list.extend(pavement_layer)
+
+        markings_layer = self._get_markings_layer(scenario)
+        features_list.extend(markings_layer)
+
+        return features_list
+
+    def _get_surfaces_layer(self, scenario):
+        layer_keys = ["walkway", "exit", "road", "bicycle_lane", "parking"]
+        w, h = scenario.display_wh
+        layers = [np.full((h, w), self.image_colors["background"], np.uint8) for _ in range(len(layer_keys))]
+        scale = 1.0 / scenario.config.background_px_to_meter
+
+        def draw_surface(elem):
+            if "subtype" in elem.attributes:
+                polygon = elem.polygon2d() if isinstance(elem, Lanelet) else elem.outerBoundPolygon()
+                points = [[int(scale * pt.x), int(-scale * pt.y)] for pt in polygon]
+                if points and elem.attributes["subtype"] in layer_keys:
+                    subtype = elem.attributes["subtype"]
+                    layer_idx = layer_keys.index(subtype)
+                    points = np.stack(points)
+                    points[points < 0] = 0
+                    points = points.reshape((-1, 1, 2))
+                    cv.fillPoly(layers[layer_idx], [points], self.image_colors[subtype], cv.LINE_AA)
+
+        for lanelet in scenario.lanelet_map.laneletLayer:
+            draw_surface(lanelet)
+        for area in scenario.lanelet_map.areaLayer:
+            draw_surface(area)
+
+        return layers
+
+    def _get_markings_layer(self, scenario):
+        marking_keys = ["line_thin_dashed", "line_thick_dashed", "line_thin_solid", "line_think_solid",
+                        "arrow_straight", "arrow_left", "arrow_right", "arrow_straight_right", "arrow_straight_left"]
+        w, h = scenario.display_wh
+        layers = [np.full((h, w), self.image_colors["background"], np.uint8) for _ in range(2)]
+        scale = 1.0 / scenario.config.background_px_to_meter
+
+        for linestring in scenario.lanelet_map.lineStringLayer:
+            if "type" in linestring.attributes and "subtype" in linestring.attributes:
+                points = [[int(scale * pt.x), int(-scale * pt.y)] for pt in linestring]
+                if not points:
+                    continue
+
+                points = np.stack(points)
+                points[points < 0] = 0
+
+                line_key = f"{linestring.attributes['type']}_{linestring.attributes['subtype']}"
+
+                if line_key in marking_keys:
+                    layer_idx = 0 if linestring.attributes["type"].startswith("line") else 1
+
+                    if linestring.attributes["subtype"] == "dashed":
+                        ls = LineString(points)
+                        pts = []
+                        for dist in np.arange(0, ls.length, scale * (self.dash_space + self.marking_length)):
+                            start_pt = ls.interpolate(dist)
+                            end_pt = ls.interpolate(dist + scale * self.marking_length)
+                            line_pts = np.array([[start_pt.x, start_pt.y], [end_pt.x, end_pt.y]], np.int32)
+                            line_pts = line_pts.reshape(-1, 1, 2)
+                            pts.append(line_pts)
+                        cv.polylines(layers[layer_idx], pts, False, self.marking_color, self.marking_thickness)
+
+                    elif linestring.attributes["type"] == "arrow":
+                        dir_vector = (points[1] - points[0]) / np.linalg.norm(points[1] - points[0])
+                        norm_vector = np.array([[0, -1], [1, 0]]) @ dir_vector
+                        if linestring.attributes["subtype"] in ["left", "right"]:
+                            dir_mul = scale if linestring.attributes["subtype"] == "right" else -scale
+                            p1 = points[1] + dir_mul * 0.7 * norm_vector
+                            p2 = points[1] + dir_mul * 0.5 * norm_vector + scale * dir_vector
+                            p3 = points[1] + dir_mul * 0.5 * norm_vector - scale * dir_vector
+                            head = [p1, p2, p3, p1]
+
+                        elif linestring.attributes["subtype"] in ["straight_left", "straight_right"]:
+                            dir_mul = scale if linestring.attributes["subtype"] == "straight_right" else -scale
+                            p0 = points[1] - scale * 2 * dir_vector
+                            p1 = p0 + dir_mul * 0.7 * norm_vector
+                            p2 = p0 + dir_mul * 0.5 * norm_vector + scale * 0.75 * dir_vector
+                            p3 = p0 + dir_mul * 0.5 * norm_vector - scale * 0.75 * dir_vector
+                            p4 = points[1] + scale * 2 * dir_vector
+                            p5 = points[1] + scale * 0.3 * norm_vector
+                            p6 = points[1] - scale * 0.3 * norm_vector
+                            head = [p0, p1, p2, p3, p1, p0, p4, p5, p6, p4]
+
+                        else:  # Straight arrow
+                            p1 = points[1] - scale * 2 * dir_vector + scale * 0.3 * norm_vector
+                            p2 = points[1] - scale * 2 * dir_vector - scale * 0.3 * norm_vector
+                            head = [p1, p2, points[1]]
+
+                        points = np.append(points, head, axis=0).astype(np.int32)
+                        points = points.reshape(-1, 1, 2)
+                        cv.polylines(layers[layer_idx], [points], False, self.marking_color, self.arrow_thickness)
+
+                    else:
+                        points = points.reshape(-1, 1, 2)
+                        cv.polylines(layers[layer_idx], [points], False, self.marking_color, self.marking_thickness)
+        return layers
+
 
 class InDMultiagentDatum:
+    t = 0
+
     def __init__(self, player_past, agent_pasts, player_future, agent_futures,
                  player_yaw, agent_yaws, overhead_features, metadata={}):
         self.player_past = player_past
@@ -94,9 +216,9 @@ class InDMultiagentDatum:
     def from_ind_trajectory(cls, agents_to_include: List[int], episode: Episode, scenario: Scenario,
                             reference_frame: int, cfg: InDConfig):
         # There is no explicit ego in the InD dataset
-        player_past = []
-        player_future = []
-        player_yaw = None
+        player_past = np.zeros((1, cfg.past_horizon_length, 3))
+        player_future = np.zeros((1, cfg.future_horizon_length, 3))
+        player_yaw = 0.0
 
         all_agent_pasts = []
         all_agent_futures = []
@@ -129,7 +251,7 @@ class InDMultiagentDatum:
         assert agent_pasts.shape[0] == agent_futures.shape[0] == agent_yaws.shape[0] == len(agents_to_include)
 
         overhead_features = InDMultiagentDatum.get_image_features(
-            episode, scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
+            scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
 
         metadata = {}
 
@@ -140,21 +262,29 @@ class InDMultiagentDatum:
                    metadata)
 
     @classmethod
-    def get_image_features(cls, episode, scenario, agent_poses, agent_yaws, agent_dims, cfg):
-        features_list = []
-        for feature in cfg.image_features:
-            if feature == "agents":
-                agents_layer = InDMultiagentDatum.get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg)
-                features_list.append(agents_layer)
-            elif feature == "surfaces":
-                pavement_layer = InDMultiagentDatum.get_surfaces_layer(scenario, cfg)
-                features_list.extend(pavement_layer)
-            elif feature == "markings":
-                marking_layer = InDMultiagentDatum.get_markings_layer(scenario, cfg)
-                features_list.append(marking_layer)
+    def get_image_features(cls, scenario, agent_poses, agent_yaws, agent_dims, cfg):
+        features_list = cfg.scenario_features.copy()
+        agents_layer = InDMultiagentDatum.get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg)
+        features_list.append(agents_layer)
+
         image = np.stack(features_list, axis=-1)
-        cv.imwrite(get_data_dir() + "precog/test.png", collapse(image))
-        return np.stack(features_list)
+        image = image[:708, :905, :]  # Trim image to smallest of all scenarios
+
+        if cfg.draw_map:
+            path_to_viz = get_data_dir() + f"precog/{scenario.config.name}/map_viz/"
+            if not os.path.exists(path_to_viz):
+                os.mkdir(path_to_viz)
+            cv.imwrite(os.path.join(path_to_viz, f"{cls.t}.png"), collapse(image))
+            cls.t += 1
+
+        # Turn image to "binary"
+        mask = image != 255
+        image[mask] = 0
+
+        # for i, l in enumerate(image.transpose((-1, 0, 1))):
+        #     cv.imwrite(get_data_dir() + f"precog/{i}_feature.png", l)
+
+        return image
 
     @staticmethod
     def get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg):
@@ -165,51 +295,8 @@ class InDMultiagentDatum:
             agent_dim = agent_dims[i]
             agent_box = Box(agent_poses[i, :], agent_dim[0], agent_dim[1], agent_yaws[i]).get_display_box(scenario)
             agent_box = agent_box.reshape((-1, 1, 2))
-            color = cfg.image_colors[agent_dim[2]]
+            color = cfg.vehicle_colors[agent_dim[2]]
             cv.fillPoly(layer, [agent_box], color, cv.LINE_AA)
-        return layer
-
-    @staticmethod
-    def get_surfaces_layer(scenario, cfg):
-        layer_keys = ["walkway", "exit", "road", "bicycle_lane", "parking", "freespace", "vegetation", "keepout"]
-        w, h = scenario.display_wh
-        layers = [np.full((h, w), cfg.image_colors["background"], np.uint8)] * len(layer_keys)
-        scale = 1.0 / scenario.config.background_px_to_meter
-
-        for lanelet in scenario.lanelet_map.laneletLayer:
-            if "subtype" in lanelet.attributes:
-                points = [[int(scale * pt.x), int(-scale * pt.y)] for pt in lanelet.polygon2d()]
-                if points and lanelet.attributes["subtype"] in layer_keys:
-                    subtype = lanelet.attributes["subtype"]
-                    layer_idx = layer_keys.index(subtype)
-                    points = np.stack(points)
-                    points[points < 0] = 0
-                    points = points.reshape((-1, 1, 2))
-                    cv.fillPoly(layers[layer_idx], [points], cfg.image_colors[subtype], cv.LINE_AA)
-
-        for area in scenario.lanelet_map.areaLayer:
-            if "subtype" in area.attributes:
-                points = [[int(scale * pt.x), int(-scale * pt.y)] for pt in area.outerBoundPolygon()]
-                if points and area.attributes["subtype"] in layer_keys:
-                    subtype = area.attributes["subtype"]
-                    layer_idx = layer_keys.index(subtype)
-                    points = np.stack(points)
-                    points[points < 0] = 0
-                    points = points.reshape((-1, 1, 2))
-                    cv.fillPoly(layers[layer_idx], [points], cfg.image_colors[subtype], cv.LINE_AA)
-        return layers
-
-    @staticmethod
-    def get_markings_layer(scenario, cfg):
-        w, h = scenario.display_wh
-        layer = np.full((h, w), cfg.image_colors["background"], np.uint8)
-        scale = 1.0 / scenario.config.background_px_to_meter
-
-        for linestring in scenario.lanelet_map.lineStringLayer:
-            if "type" not in linestring.attributes:
-                continue
-
-
         return layer
 
 

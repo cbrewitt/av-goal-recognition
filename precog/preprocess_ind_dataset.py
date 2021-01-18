@@ -29,7 +29,7 @@ def prepare_dataset(scenario_name, root_dir):
 
     # Used for outputting incremental files for PRECOG processing
     for episode_idx, episode in enumerate(episodes):
-        cfg = InDConfig(episode.recordings_meta)
+        cfg = InDConfig(scenario, episode.recordings_meta, draw_map=True)
 
         split_type = dict_list_contains(dataset_split[scenario_name], episode_idx)
         if split_type == "valid": split_type = "val"
