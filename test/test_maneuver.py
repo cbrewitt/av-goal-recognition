@@ -4,7 +4,7 @@ import pytest
 from core.scenario import Frame, AgentState
 from test_feature_extraction import get_feature_extractor
 
-from igp2.maneuver import FollowLane, ManeuverConfig, SwitchLane, GiveWay
+from igp2.maneuver import FollowLane, ManeuverConfig, SwitchLane, GiveWay, Maneuver
 
 
 def test_follow_lane_path():
@@ -153,3 +153,16 @@ def test_cautious_cost_deceleration():
     path = np.array([[0, 0], [0, 1], [0, 2]])
     velocity = GiveWay.get_const_deceleration_vel(10, 2, path)
     assert np.all(velocity == [10, 6, 2])
+
+
+def test_trajectory_times():
+    path = np.array([[0, 0], [0, 1], [0, 2]])
+    velocity = np.array([10, 6, 2])
+    time = Maneuver.trajectory_times(path, velocity)
+    assert np.allclose(time, [0, 1/8, 3/8])
+
+
+def test_time_until_clear():
+    ego_time_to_junction = 5
+    times_to_junction = [3, 7, 11, 12]
+    assert GiveWay.get_time_until_clear(ego_time_to_junction, times_to_junction) == 7

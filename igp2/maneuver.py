@@ -62,6 +62,7 @@ class Maneuver(ABC):
             frame.agents[agent_id], lanelet_path, frame)
         if vehicle_in_front_id is not None and vehicle_in_front_dist < 15:
             max_vel = frame.agents[vehicle_in_front_id].v_lon  # TODO what if this is zero?
+            assert max_vel > 1e-4
             velocity = np.minimum(velocity, max_vel)
         return velocity
 
@@ -80,6 +81,14 @@ class Maneuver(ABC):
         a_lat = 0
         return AgentState(frame_id, x, y, v_x, v_y, heading, a_x, a_y,
                           v_lon, v_lat, a_lon, a_lat)
+
+    @staticmethod
+    def trajectory_times(path, velocity):
+        # assume constant acceleration between points on path
+        v_avg = (velocity[:-1] + velocity[1:])/2
+        s = np.linalg.norm(np.diff(path, axis=0), axis=1)
+        t = np.concatenate([[0], np.cumsum(s / v_avg)])
+        return t
 
 
 class FollowLane(Maneuver):
@@ -235,24 +244,48 @@ class SwitchLane(FollowLane):
 
 class GiveWay(FollowLane):
     MAX_ONCOMING_VEHICLE_DIST = 50
+    GAP_TIME = 3
 
     def get_velocity(self, path, agent_id, frame, feature_extractor, lanelet_path):
-        time_until_clear = self.get_time_until_clear(frame, feature_extractor)
+        state = frame.agents[agent_id]
 
+        velocity = self.get_const_deceleration_vel(state.v_lon, 2, path)
+        ego_time_to_junction = self.trajectory_times(path, velocity)[0]
 
-    def get_time_until_clear(self, frame, feature_extractor):
+        times_to_juction = self.get_times_to_junction(frame, feature_extractor, ego_time_to_junction)
+        time_until_clear = self.get_time_until_clear(ego_time_to_junction, times_to_juction)
+        time_to_wait = time_until_clear - ego_time_to_junction
+        if time_to_wait > 0:
+            pass
+
+    def get_times_to_junction(self, frame, feature_extractor, ego_time_to_junction):
         exit_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.exit_lanelet_id)
         entry_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
         route = feature_extractor.routing_graph.shortestPath(entry_lanelet, exit_lanelet, withLaneChanges=False)
         oncoming_vehicles = feature_extractor.oncoming_vehicles(route, frame, max_dist=self.MAX_ONCOMING_VEHICLE_DIST)
-        if len(oncoming_vehicles) == 0:
-            time_until_clear = 0
-        else:
-            time_until_clear = max([dist/agent.v_lon for (agent, dist) in oncoming_vehicles.values()])
-        return time_until_clear
+
+        time_to_junction = []
+        for agent, dist in oncoming_vehicles.values():
+            # check is the vehicle stopped
+            time = dist/agent.v_lon
+            if agent.v_lon > 1 and time > ego_time_to_junction:
+                time_to_junction.append(time)
+
+        return time_to_junction
 
     @classmethod
-    def get_const_deceleration_vel(cls, initial_vel, final_vel, path):
+    def get_time_until_clear(cls, ego_time_to_junction, times_to_junction):
+        if len(times_to_junction) == 0:
+            return 0.
+        times_to_junction = np.array(times_to_junction)
+        times_to_junction = times_to_junction[times_to_junction >= ego_time_to_junction]
+        times_to_junction = np.concatenate([[ego_time_to_junction], times_to_junction, [np.inf]])
+        gaps = np.diff(times_to_junction)
+        first_long_gap = np.argmax(gaps >= cls.GAP_TIME)
+        return times_to_junction[first_long_gap]
+
+    @staticmethod
+    def get_const_deceleration_vel(initial_vel, final_vel, path):
         s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))])
         velocity = initial_vel + s / s[-1] * (final_vel - initial_vel)
         return velocity
