@@ -20,6 +20,13 @@ def collapse(arr):
     return ret
 
 
+def rotate(image, angle):
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv.getRotationMatrix2D(image_center, angle, 1.0)
+    result = cv.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv.INTER_CUBIC, borderValue=255)
+    return result
+
+
 class InDConfig:
     def __init__(self, scenario, recordings_meta, draw_map = False):
         self.recordings_meta = recordings_meta
@@ -35,8 +42,8 @@ class InDConfig:
         self.sample_period = 2  # Hz
         self.sample_frequency = 1. / self.sample_period
 
-        # Predict 4 seconds in the future with 1 second of past.
-        self.past_horizon_seconds = 1  # Tp
+        # Predict 2 seconds in the future with 2 second of past.
+        self.past_horizon_seconds = 2  # Tp
         self.future_horizon_seconds = 2  # Tf
 
         # The number of samples we need.
@@ -47,9 +54,7 @@ class InDConfig:
         #  Minimum OTHER agents visible. In our case all agents are OTHER agents
         # There is no dedicated ego vehicle
         self.min_relevant_agents = 1  # A
-
-        # Image features to include in overhead features
-        self.image_features = ["surfaces", "markings", "agents"]
+        self.image_dims = (128, 100)
 
         self.vehicle_colors = {
             "car": 0,
@@ -72,27 +77,9 @@ class InDConfig:
         # Space between dashed markings and length of dashes in metres
         self.dash_space = 2
         self.marking_length = 2
-        self.marking_color = 240
         self.arrow_thickness = 2
         self.marking_thickness = 1
-
-        #  Configuration for temporal interpolation.
-        # For InD usually this is not necessary as the frame rate of the recording is high
-        # but the sample rate is low
-        self.target_sample_period_past = 5
-        self.target_sample_period_future = 5
-        self.target_sample_frequency_past = 1. / self.target_sample_period_past
-        self.target_sample_frequency_future = 1. / self.target_sample_period_future
-        self.target_past_horizon = self.past_horizon_seconds * self.target_sample_period_past
-        self.target_future_horizon = self.future_horizon_seconds * self.target_sample_period_future
-        self.target_past_times = -1 * np.arange(0, self.past_horizon_seconds, self.target_sample_frequency_past)[::-1]
-        # Hacking negative zero to slightly positive for temporal interpolation purposes?
-        self.target_past_times[np.isclose(self.target_past_times, 0.0, atol=1e-5)] = 1e-8
-
-        # The final relative future times to interpolate
-        self.target_future_times = np.arange(self.target_sample_frequency_future,
-                                             self.future_horizon_seconds + self.target_sample_frequency_future,
-                                             self.target_sample_frequency_future)
+        self.marking_color = 240
 
     def _process_scenario(self, scenario):
         features_list = []
@@ -216,8 +203,8 @@ class InDMultiagentDatum:
     def from_ind_trajectory(cls, agents_to_include: List[int], episode: Episode, scenario: Scenario,
                             reference_frame: int, cfg: InDConfig):
         # There is no explicit ego in the InD dataset
-        player_past = np.zeros((1, cfg.past_horizon_length, 3))
-        player_future = np.zeros((1, cfg.future_horizon_length, 3))
+        player_past = np.zeros((cfg.past_horizon_length, 3))
+        player_future = np.zeros((cfg.future_horizon_length, 3))
         player_yaw = 0.0
 
         all_agent_pasts = []
@@ -267,8 +254,9 @@ class InDMultiagentDatum:
         agents_layer = InDMultiagentDatum.get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg)
         features_list.append(agents_layer)
 
+        features_list = [cv.resize(layer[:700, :900], cfg.image_dims, interpolation=cv.INTER_LINEAR)
+                         for layer in features_list]
         image = np.stack(features_list, axis=-1)
-        image = image[:708, :905, :]  # Trim image to smallest of all scenarios
 
         if cfg.draw_map:
             path_to_viz = get_data_dir() + f"precog/{scenario.config.name}/map_viz/"
