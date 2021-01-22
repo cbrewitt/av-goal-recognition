@@ -254,9 +254,40 @@ class GiveWay(FollowLane):
 
         times_to_juction = self.get_times_to_junction(frame, feature_extractor, ego_time_to_junction)
         time_until_clear = self.get_time_until_clear(ego_time_to_junction, times_to_juction)
-        time_to_wait = time_until_clear - ego_time_to_junction
-        if time_to_wait > 0:
+        stop_time = time_until_clear - ego_time_to_junction
+        if stop_time > 0:
+            # insert waiting points
+            path = self.add_stop_points(path)
+            velocity = self.add_stop_velocity(path, velocity, stop_time)
+
             pass
+
+    @staticmethod
+    def add_stop_points(path):
+        p_start = path[-2, None]
+        p_end = path[-1, None]
+        diff = p_end - p_start
+        p_stop_frac = np.array([[0.7, 0.9]]).T
+        p_stop = p_start + p_stop_frac @ diff
+        new_path = np.concatenate([path[:-1], p_stop, p_end])
+        return new_path
+
+    @staticmethod
+    def add_stop_velocity(path, velocity, stop_time):
+        final_section = path[-4:]
+        s = np.linalg.norm(np.diff(final_section, axis=0), axis=1)
+        v1, v2 = velocity[-2:]
+        t = stop_time + 2 * np.sum(s) / (v1 + v2)
+        A = np.array([[t, 0, 0, 0],
+                      [t * (v1 + v2), -2, 1, -2],
+                      [-v1 * v2 * t, -2 * v2, -v1 - v2, -2 * v1],
+                      [0, 0, -v1 * v2, 0]])
+
+        coeff = A @ np.concatenate([[1], s]).T
+        r = np.roots(coeff)
+        stop_vel = np.max(r.real[np.abs(r.imag < 1e-5)])
+        import pdb;pdb.set_trace()
+        return stop_vel
 
     def get_times_to_junction(self, frame, feature_extractor, ego_time_to_junction):
         exit_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.exit_lanelet_id)
@@ -289,3 +320,4 @@ class GiveWay(FollowLane):
         s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(path, axis=0), axis=1))])
         velocity = initial_vel + s / s[-1] * (final_vel - initial_vel)
         return velocity
+

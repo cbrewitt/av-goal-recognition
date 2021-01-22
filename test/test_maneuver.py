@@ -166,3 +166,16 @@ def test_time_until_clear():
     ego_time_to_junction = 5
     times_to_junction = [3, 7, 11, 12]
     assert GiveWay.get_time_until_clear(ego_time_to_junction, times_to_junction) == 7
+
+
+def test_add_stopping_points():
+    path = np.array([[0, 0], [0, 1], [0, 2]])
+    new_path = GiveWay.add_stop_points(path)
+    assert np.allclose(new_path, np.array([[0, 0], [0, 1], [0, 1.7], [0, 1.9], [0, 2]]))
+
+
+def test_add_stop_velocity():
+    path = np.array([[0, 0], [0, 1], [0, 1.7], [0, 1.9], [0, 2]])
+    velocity = [1, 1, 1]
+    stop_velocity = GiveWay.add_stop_velocity(path, velocity, 0.466)
+    assert stop_velocity == pytest.approx(0.5)
