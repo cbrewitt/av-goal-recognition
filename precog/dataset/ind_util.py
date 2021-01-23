@@ -28,7 +28,7 @@ def rotate(image, angle):
 
 
 class InDConfig:
-    def __init__(self, scenario, recordings_meta, draw_map = False):
+    def __init__(self, scenario, recordings_meta, draw_map=False):
         self.recordings_meta = recordings_meta
         self.draw_map = draw_map
 
@@ -37,14 +37,15 @@ class InDConfig:
 
     def _create_config(self):
         self.frame_rate = self.recordings_meta["frameRate"]  # Hz
+        self.inv_frame_rate = 1 / self.frame_rate
 
         # samples are at 2Hz in the original Precog implementation
         self.sample_period = 2  # Hz
         self.sample_frequency = 1. / self.sample_period
 
-        # Predict 2 seconds in the future with 2 second of past.
+        # Predict 2 seconds in the future with 2 seconds of past.
         self.past_horizon_seconds = 2  # Tp
-        self.future_horizon_seconds = 2  # Tf
+        self.future_horizon_seconds = 3  # Tf
 
         # The number of samples we need.
         self.future_horizon_length = int(round(self.future_horizon_seconds * self.frame_rate))
@@ -54,7 +55,7 @@ class InDConfig:
         #  Minimum OTHER agents visible. In our case all agents are OTHER agents
         # There is no dedicated ego vehicle
         self.min_relevant_agents = 1  # A
-        self.image_dims = (128, 100)
+        self.image_dims = (257, 200)
 
         self.vehicle_colors = {
             "car": 0,
@@ -80,6 +81,22 @@ class InDConfig:
         self.arrow_thickness = 2
         self.marking_thickness = 1
         self.marking_color = 240
+
+        # Configuration for temporal interpolation.
+        self.target_sample_period_past = 10
+        self.target_sample_period_future = 10
+        self.target_sample_frequency_past = 1. / self.target_sample_period_past
+        self.target_sample_frequency_future = 1. / self.target_sample_period_future
+        self.target_past_horizon = self.past_horizon_seconds * self.target_sample_period_past
+        self.target_future_horizon = self.future_horizon_seconds * self.target_sample_period_future
+        self.target_past_times = -1 * np.arange(0, self.past_horizon_seconds, self.target_sample_frequency_past)[::-1]
+        # Hacking negative zero to slightly positive for temporal interpolation purposes?
+        self.target_past_times[np.isclose(self.target_past_times, 0.0, atol=1e-5)] = 1e-8
+
+        # The final relative future times to interpolate
+        self.target_future_times = np.arange(self.target_sample_frequency_future,
+                                             self.future_horizon_seconds + self.target_sample_frequency_future,
+                                             self.target_sample_frequency_future)
 
     def _process_scenario(self, scenario):
         features_list = []
@@ -203,8 +220,8 @@ class InDMultiagentDatum:
     def from_ind_trajectory(cls, agents_to_include: List[int], episode: Episode, scenario: Scenario,
                             reference_frame: int, cfg: InDConfig):
         # There is no explicit ego in the InD dataset
-        player_past = np.zeros((cfg.past_horizon_length, 3))
-        player_future = np.zeros((cfg.future_horizon_length, 3))
+        player_past = np.zeros((cfg.target_past_horizon, 3))
+        player_future = np.zeros((cfg.target_future_horizon, 3))
         player_yaw = 0.0
 
         all_agent_pasts = []
@@ -217,17 +234,26 @@ class InDMultiagentDatum:
             agent = episode.agents[agent_id]
             local_frame = reference_frame - agent.initial_frame
 
+            # Interpolate for past trajectory
             agent_past_trajectory = agent.state_history[local_frame - cfg.past_horizon_length:local_frame]
-            all_agent_pasts.append([[frame.x, frame.y, 0.0] for frame in agent_past_trajectory])
+            past_timestamps = -np.arange(0, cfg.past_horizon_seconds, cfg.inv_frame_rate)[::-1]
+            agent_past_interpolated = InDMultiagentDatum.interpolate_trajectory(agent_past_trajectory,
+                                                                                cfg.target_past_times,
+                                                                                past_timestamps)
+            all_agent_pasts.append(agent_past_interpolated)
 
+            # Interpolation for future trajectory
             agent_future_trajectory = agent.state_history[local_frame:local_frame + cfg.future_horizon_length]
-            all_agent_futures.append([[frame.x, frame.y, 0.0] for frame in agent_future_trajectory])
+            future_timestamps = np.arange(cfg.future_horizon_seconds, 0.0, -cfg.inv_frame_rate)[::-1]
+            agent_future_interpolated = InDMultiagentDatum.interpolate_trajectory(agent_future_trajectory,
+                                                                                  cfg.target_future_times,
+                                                                                  future_timestamps)
+            all_agent_futures.append(agent_future_interpolated)
 
-            all_agent_yaws.append(agent.state_history[local_frame].heading)
+            all_agent_yaws.append(agent.state_history[local_frame - 1].heading)
 
             agent_dims.append([agent.width, agent.length, agent.agent_type])
 
-        # TODO: Use UTM coordinate frame instead?
         # (A, Tp, d). Agent past trajectories in local frame at t=now
         agent_pasts = np.stack(all_agent_pasts, axis=0)
         # (A, Tf, d). Agent future trajectories in local frame at t=now
@@ -236,6 +262,8 @@ class InDMultiagentDatum:
         agent_yaws = np.asarray(all_agent_yaws)
 
         assert agent_pasts.shape[0] == agent_futures.shape[0] == agent_yaws.shape[0] == len(agents_to_include)
+        assert agent_pasts.shape[1] == cfg.target_past_horizon
+        assert agent_futures.shape[1] == cfg.target_future_horizon
 
         overhead_features = InDMultiagentDatum.get_image_features(
             scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
@@ -286,6 +314,15 @@ class InDMultiagentDatum:
             color = cfg.vehicle_colors[agent_dim[2]]
             cv.fillPoly(layer, [agent_box], color, cv.LINE_AA)
         return layer
+
+    @staticmethod
+    def interpolate_trajectory(trajectory, target_timestamps, timestamps):
+        poses = np.array([[frame.x, frame.y, 0.0] for frame in trajectory])
+        ret = []
+        for axis in poses.T:
+            interp = np.interp(target_timestamps, timestamps, axis)
+            ret.append(interp)
+        return np.array(ret).T
 
 
 class Box:

@@ -275,9 +275,10 @@ class Scenario:
         loader = EpisodeLoaderFactory.get_loader(self.config)
         episodes = []
         for idx, c in enumerate(self.config.episodes):
-            print('loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
+            print('Loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
             episode = loader.load(EpisodeConfig(c))
             episodes.append(episode)
+            # break
         return episodes
 
     def load_episode(self, episode_id):
