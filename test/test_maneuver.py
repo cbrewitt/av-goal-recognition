@@ -149,7 +149,7 @@ def test_switch_lane_velocity():
     assert np.all(maneuver.velocity <= 5)
 
 
-def test_cautious_cost_deceleration():
+def test_giveway_cost_deceleration():
     path = np.array([[0, 0], [0, 1], [0, 2]])
     velocity = GiveWay.get_const_deceleration_vel(10, 2, path)
     assert np.all(velocity == [10, 6, 2])
@@ -177,5 +177,23 @@ def test_add_stopping_points():
 def test_add_stop_velocity():
     path = np.array([[0, 0], [0, 1], [0, 1.7], [0, 1.9], [0, 2]])
     velocity = [1, 1, 1]
-    stop_velocity = GiveWay.add_stop_velocity(path, velocity, 0.466)
-    assert stop_velocity == pytest.approx(0.5)
+    stop_velocity = GiveWay.get_stop_velocity(path, velocity, 0.46666)
+    assert stop_velocity == pytest.approx(0.5, 0.01)
+
+
+def test_giveway_trajectory():
+    feature_extractor = get_feature_extractor()
+    frame = Frame(0)
+    state = AgentState(0, 0.1, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    frame.add_agent_state(0, state)
+    config = ManeuverConfig({'termination_point': (3.9, 0.5),
+                             'initial_lanelet_id': 1,
+                             'final_lanelet_id': 3,
+                             'exit_lanelet_id': 3})
+    maneuver = GiveWay(0, frame, feature_extractor, config)
+    terminal_state = maneuver.terminal_state()
+    assert terminal_state.x == pytest.approx(3.9)
+    assert terminal_state.y == pytest.approx(0.5)
+    assert terminal_state.heading == pytest.approx(0)
+    assert terminal_state.v_x == pytest.approx(2)
+    assert terminal_state.v_y == pytest.approx(0)

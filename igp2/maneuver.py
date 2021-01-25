@@ -246,21 +246,27 @@ class GiveWay(FollowLane):
     MAX_ONCOMING_VEHICLE_DIST = 50
     GAP_TIME = 3
 
-    def get_velocity(self, path, agent_id, frame, feature_extractor, lanelet_path):
-        state = frame.agents[agent_id]
+    def get_trajectory(self, agent_id: int, frame: Frame, feature_extractor: FeatureExtractor):
+        route = self.get_route(feature_extractor)
+        lanelet_path = route.shortestPath()
+        points = self.get_points(agent_id, frame, lanelet_path)
+        path = self.get_path(agent_id, frame, points)
 
+        state = frame.agents[agent_id]
         velocity = self.get_const_deceleration_vel(state.v_lon, 2, path)
-        ego_time_to_junction = self.trajectory_times(path, velocity)[0]
+        ego_time_to_junction = self.trajectory_times(path, velocity)[-1]
+        print(ego_time_to_junction)
 
         times_to_juction = self.get_times_to_junction(frame, feature_extractor, ego_time_to_junction)
+        print(times_to_juction)
         time_until_clear = self.get_time_until_clear(ego_time_to_junction, times_to_juction)
+        print(times_to_juction)
         stop_time = time_until_clear - ego_time_to_junction
         if stop_time > 0:
             # insert waiting points
             path = self.add_stop_points(path)
-            velocity = self.add_stop_velocity(path, velocity, stop_time)
-
-            pass
+            velocity = self.add_stop_velocities(path, velocity, stop_time)
+        return path, velocity
 
     @staticmethod
     def add_stop_points(path):
@@ -272,27 +278,10 @@ class GiveWay(FollowLane):
         new_path = np.concatenate([path[:-1], p_stop, p_end])
         return new_path
 
-    @staticmethod
-    def add_stop_velocity(path, velocity, stop_time):
-        final_section = path[-4:]
-        s = np.linalg.norm(np.diff(final_section, axis=0), axis=1)
-        v1, v2 = velocity[-2:]
-        t = stop_time + 2 * np.sum(s) / (v1 + v2)
-        A = np.array([[t, 0, 0, 0],
-                      [t * (v1 + v2), -2, 1, -2],
-                      [-v1 * v2 * t, -2 * v2, -v1 - v2, -2 * v1],
-                      [0, 0, -v1 * v2, 0]])
-
-        coeff = A @ np.concatenate([[1], s]).T
-        r = np.roots(coeff)
-        stop_vel = np.max(r.real[np.abs(r.imag < 1e-5)])
-        import pdb;pdb.set_trace()
-        return stop_vel
-
     def get_times_to_junction(self, frame, feature_extractor, ego_time_to_junction):
         exit_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.exit_lanelet_id)
         entry_lanelet = feature_extractor.lanelet_map.laneletLayer.get(self.config.final_lanelet_id)
-        route = feature_extractor.routing_graph.shortestPath(entry_lanelet, exit_lanelet, withLaneChanges=False)
+        route = feature_extractor.routing_graph.getRoute(entry_lanelet, exit_lanelet, withLaneChanges=False)
         oncoming_vehicles = feature_extractor.oncoming_vehicles(route, frame, max_dist=self.MAX_ONCOMING_VEHICLE_DIST)
 
         time_to_junction = []
@@ -321,3 +310,24 @@ class GiveWay(FollowLane):
         velocity = initial_vel + s / s[-1] * (final_vel - initial_vel)
         return velocity
 
+    @staticmethod
+    def get_stop_velocity(path, velocity, stop_time):
+        # calculate stop velocities assuming constant acceleration in each segment
+        final_section = path[-4:]
+        s = np.linalg.norm(np.diff(final_section, axis=0), axis=1)
+        v1, v2 = velocity[-2:]
+        t = stop_time + 2 * np.sum(s) / (v1 + v2)
+        A = np.array([[t, 0, 0, 0],
+                      [t * (v1 + v2), -2, -1, -2],
+                      [v1 * v2 * t, -2 * v2, -v1 - v2, -2 * v1],
+                      [0, 0, -v1 * v2, 0]])
+        coeff = A @ np.concatenate([[1], s]).T
+        r = np.roots(coeff)
+        stop_vel = np.max(r.real[np.abs(r.imag < 1e-5)])
+        return stop_vel
+
+    @classmethod
+    def add_stop_velocities(cls, path, velocity, stop_time):
+        stop_vel = cls.get_stop_velocity(path, velocity, stop_time)
+        velocity = np.insert(velocity, -1, [stop_vel] * 2)
+        return velocity
