@@ -55,7 +55,9 @@ class InDConfig:
         #  Minimum OTHER agents visible. In our case all agents are OTHER agents
         # There is no dedicated ego vehicle
         self.min_relevant_agents = 1  # A
-        self.image_dims = (257, 200)
+
+        self.downsample_factor = 1 / 3.5
+        self.image_dims = (900, 700)
 
         self.vehicle_colors = {
             "car": 0,
@@ -265,10 +267,11 @@ class InDMultiagentDatum:
         assert agent_pasts.shape[1] == cfg.target_past_horizon
         assert agent_futures.shape[1] == cfg.target_future_horizon
 
-        overhead_features = InDMultiagentDatum.get_image_features(
+        overhead_features, visualisation = InDMultiagentDatum.get_image_features(
             scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
 
-        metadata = {}
+        metadata = {"vis_layer": visualisation,
+                    "vis_scale": cfg.downsample_factor / scenario.config.background_px_to_meter}
 
         return cls(player_past, agent_pasts,
                    player_future, agent_futures,
@@ -282,15 +285,17 @@ class InDMultiagentDatum:
         agents_layer = InDMultiagentDatum.get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg)
         features_list.append(agents_layer)
 
-        features_list = [cv.resize(layer[:700, :900], cfg.image_dims, interpolation=cv.INTER_LINEAR)
+        features_list = [cv.resize(layer[:cfg.image_dims[1], :cfg.image_dims[0]], (0, 0),
+                                   fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_LINEAR)
                          for layer in features_list]
         image = np.stack(features_list, axis=-1)
 
+        visualisation = collapse(image).copy()
         if cfg.draw_map:
             path_to_viz = get_data_dir() + f"precog/{scenario.config.name}/map_viz/"
             if not os.path.exists(path_to_viz):
                 os.mkdir(path_to_viz)
-            cv.imwrite(os.path.join(path_to_viz, f"{cls.t}.png"), collapse(image))
+            cv.imwrite(os.path.join(path_to_viz, f"{cls.t}.png"), visualisation)
             cls.t += 1
 
         # Turn image to "binary"
@@ -300,7 +305,7 @@ class InDMultiagentDatum:
         # for i, l in enumerate(image.transpose((-1, 0, 1))):
         #     cv.imwrite(get_data_dir() + f"precog/{i}_feature.png", l)
 
-        return image
+        return image, visualisation
 
     @staticmethod
     def get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg):

@@ -3,13 +3,14 @@ import argparse
 import dill
 import tqdm
 import json
+import pandas as pd
 import numpy as np
 
 from core.base import get_scenario_config_dir, get_data_dir, get_core_dir
 from core.feature_extraction import GoalDetector
 from core.scenario import Scenario
 from core.map_vis_lanelet2 import draw_lanelet_map
-from precog.ind_util import InDConfig, InDMultiagentDatum
+from precog.dataset.ind_util import InDConfig, InDMultiagentDatum
 
 
 def dict_list_contains(d, elem):
@@ -26,6 +27,7 @@ def prepare_dataset(scenario_name, root_dir):
 
     count = 0
     prev_split = ""
+    df_list = []
 
     # Used for outputting incremental files for PRECOG processing
     for episode_idx, episode in enumerate(episodes):
@@ -68,7 +70,7 @@ def prepare_dataset(scenario_name, root_dir):
                     valid_agent_ids.append(agent_id)
 
             if len(valid_agent_ids) >= cfg.min_relevant_agents:
-                ref_frame = initial_frame + cfg.past_horizon_length  # Corresponds to 'now' in the datum
+                ref_frame = initial_frame + cfg.past_horizon_length
 
                 datum = InDMultiagentDatum.from_ind_trajectory(valid_agent_ids, episode, scenario, ref_frame, cfg)
 
@@ -101,6 +103,7 @@ def main():
             if not os.path.exists(set_path):
                 os.mkdir(set_path)
 
+        print(f"Processing {len(scenarios)} scenarios.")
         print('Processing dataset for scenario: ' + scenario_name)
         prepare_dataset(scenario_name, scenario_path)
 
