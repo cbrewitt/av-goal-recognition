@@ -6,9 +6,7 @@ import numpy as np
 import cv2 as cv
 import os
 
-from lanelet2.core import Lanelet
 from shapely.geometry import LineString
-from core.scenario import Episode, Scenario
 from core.base import get_data_dir
 
 
@@ -119,7 +117,7 @@ class InDConfig:
 
         def draw_surface(elem):
             if "subtype" in elem.attributes:
-                polygon = elem.polygon2d() if isinstance(elem, Lanelet) else elem.outerBoundPolygon()
+                polygon = elem.polygon2d() if hasattr(elem, "polygon2d") else elem.outerBoundPolygon()
                 points = [[int(scale * pt.x), int(-scale * pt.y)] for pt in polygon]
                 if points and elem.attributes["subtype"] in layer_keys:
                     subtype = elem.attributes["subtype"]
@@ -219,7 +217,7 @@ class InDMultiagentDatum:
         self.metadata = metadata
 
     @classmethod
-    def from_ind_trajectory(cls, agents_to_include: List[int], episode: Episode, scenario: Scenario,
+    def from_ind_trajectory(cls, agents_to_include: List[int], episode, scenario,
                             reference_frame: int, cfg: InDConfig):
         # There is no explicit ego in the InD dataset
         player_past = np.zeros((cfg.target_past_horizon, 3))
@@ -271,7 +269,8 @@ class InDMultiagentDatum:
             scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
 
         metadata = {"vis_layer": visualisation,
-                    "vis_scale": cfg.downsample_factor / scenario.config.background_px_to_meter}
+                    "vis_scale": cfg.downsample_factor / scenario.config.background_px_to_meter,
+                    "agent_dims": agent_dims}
 
         return cls(player_past, agent_pasts,
                    player_future, agent_futures,
@@ -286,7 +285,7 @@ class InDMultiagentDatum:
         features_list.append(agents_layer)
 
         features_list = [cv.resize(layer[:cfg.image_dims[1], :cfg.image_dims[0]], (0, 0),
-                                   fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_LINEAR)
+                                   fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_AREA)
                          for layer in features_list]
         image = np.stack(features_list, axis=-1)
 
@@ -301,9 +300,6 @@ class InDMultiagentDatum:
         # Turn image to "binary"
         mask = image != 255
         image[mask] = 0
-
-        # for i, l in enumerate(image.transpose((-1, 0, 1))):
-        #     cv.imwrite(get_data_dir() + f"precog/{i}_feature.png", l)
 
         return image, visualisation
 
