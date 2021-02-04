@@ -43,7 +43,7 @@ class InDConfig:
 
         # Predict 2 seconds in the future with 2 seconds of past.
         self.past_horizon_seconds = 2  # Tp
-        self.future_horizon_seconds = 3  # Tf
+        self.future_horizon_seconds = 2  # Tf
 
         # The number of samples we need.
         self.future_horizon_length = int(round(self.future_horizon_seconds * self.frame_rate))
@@ -54,7 +54,7 @@ class InDConfig:
         # There is no dedicated ego vehicle
         self.min_relevant_agents = 1  # A
 
-        self.downsample_factor = 1 / 3.5
+        self.downsample_factor = 1 / 3
         self.image_dims = (900, 700)
 
         self.vehicle_colors = {
@@ -217,7 +217,7 @@ class InDMultiagentDatum:
         self.metadata = metadata
 
     @classmethod
-    def from_ind_trajectory(cls, agents_to_include: List[int], episode, scenario,
+    def from_ind_trajectory(cls, agents_to_include: List[int], goals, episode, scenario,
                             reference_frame: int, cfg: InDConfig):
         # There is no explicit ego in the InD dataset
         player_past = np.zeros((cfg.target_past_horizon, 3))
@@ -268,9 +268,19 @@ class InDMultiagentDatum:
         overhead_features, visualisation = InDMultiagentDatum.get_image_features(
             scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
 
+        # Scale the trajectory to match the units of the images features
+        vis_scale = cfg.downsample_factor / scenario.config.background_px_to_meter
+        agent_pasts *= vis_scale
+        agent_futures *= vis_scale
+
+        true_goals = np.zeros(1 + len(agents_to_include))
+        for i, agent_id in enumerate(agents_to_include):
+            true_goals[1 + i] = goals[agent_id]
+
         metadata = {"vis_layer": visualisation,
-                    "vis_scale": cfg.downsample_factor / scenario.config.background_px_to_meter,
-                    "agent_dims": agent_dims}
+                    "vis_scale": vis_scale,
+                    "agent_dims": agent_dims,
+                    "true_goals": true_goals}
 
         return cls(player_past, agent_pasts,
                    player_future, agent_futures,
@@ -297,9 +307,10 @@ class InDMultiagentDatum:
             cv.imwrite(os.path.join(path_to_viz, f"{cls.t}.png"), visualisation)
             cls.t += 1
 
-        # Turn image to "binary"
+        # Turn image to binary
         mask = image != 255
-        image[mask] = 0
+        image[mask] = 1
+        image[~mask] = 0
 
         return image, visualisation
 

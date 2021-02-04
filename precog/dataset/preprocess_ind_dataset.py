@@ -72,7 +72,8 @@ def prepare_dataset(scenario_name, root_dir):
             if len(valid_agent_ids) >= cfg.min_relevant_agents:
                 ref_frame = initial_frame + cfg.past_horizon_length
 
-                datum = InDMultiagentDatum.from_ind_trajectory(valid_agent_ids, episode, scenario, ref_frame, cfg)
+                datum = InDMultiagentDatum.from_ind_trajectory(
+                    valid_agent_ids, goals, episode, scenario, ref_frame, cfg)
 
                 path_to_split = os.path.join(root_dir, split_type)
                 with open(os.path.join(path_to_split, f"ma_datum_{count:06d}.dill"), "wb") as f:
