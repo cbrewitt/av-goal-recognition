@@ -377,6 +377,152 @@ class FeatureExtractor:
         else:
             return None, None
 
+    def get_lines_crossed(self, path_lanelet):
+        # get the lane edge lines which the lanelet centerline crosses
+        lanelets = []
+        intersection_points = []
+        for lanelet in self.lanelet_map.laneletLayer:
+            if path_lanelet != lanelet and self.traffic_rules.canPass(lanelet):
+                left_virtual = lanelet.leftBound.attributes['type'] == 'virtual'
+                right_virtual = lanelet.rightBound.attributes['type'] == 'virtual'
+                path_centerline = geometry.to2D(path_lanelet.centerline)
+                right_bound = geometry.to2D(lanelet.rightBound)
+                left_bound = geometry.to2D(lanelet.leftBound)
+                left_intersects = (not left_virtual and
+                                   geometry.intersects2d(path_centerline, left_bound))
+                right_intersects = (not right_virtual and
+                                    geometry.intersects2d(path_centerline, right_bound))
+                if path_lanelet != lanelet:
+                    if left_intersects:
+                        intersection_point = LaneletHelpers.intersection_point(
+                            path_centerline, left_bound)
+                        lanelets.append(lanelet)
+                        intersection_points.append(intersection_point)
+                    if right_intersects:
+                        intersection_point = LaneletHelpers.intersection_point(
+                            path_centerline, right_bound)
+                        lanelets.append(lanelet)
+                        intersection_points.append(intersection_point)
+        return lanelets, intersection_points
+
+    def get_lines_crossed_by_path(self, lanelet_path):
+        lanelets = []
+        intersection_points = []
+        for l in lanelet_path:
+            lanelet_lanelets_crossed, lanelet_intersection_points = self.get_lines_crossed(l)
+            lanelets.extend(lanelet_lanelets_crossed)
+            intersection_points.extend(lanelet_intersection_points)
+        return lanelets, intersection_points
+
+    def get_branch_types(self, start_lanelet):
+        # get the type of lanelets in a branch (turn left, right straight etc)
+        entry_lanelets = self.routing_graph.following(start_lanelet)
+        branch_types = []
+        junction_paths = []
+
+        start_road_lanelets = self.get_road_lanelets(start_lanelet)
+
+        for entry_lanelet in entry_lanelets:
+            # get path
+            # if a line is not crossed, it is continue lane
+            # if a line is crossed near start only, it is exit
+            # if the line crossed is following/ preceding lanelets in road slice, it is exit
+            # if the crossed line is a boundary of one of the other entry lanelets, it is exit
+            # if a line is crossed near end only, it is entry
+            # if a line is crossed near start and end, it is cross road
+            # if it is entry/exit, the get direction from lane angles
+
+            # get all lanelets in start road and end road
+            # if crossed line is in start road, then it is exit
+            # if crossed line is in end road, it is entry
+            # otherwise it is cross road
+
+            junction_path = self.get_junction_path(entry_lanelet)
+            junction_paths.append(junction_path)
+
+            # get all lines crossed along path
+            crossed_lanelets, intersection_points = self.get_lines_crossed_by_path(junction_path)
+            intersection_points = [LaneletHelpers.lanelet_point_to_shapely(p) for p in intersection_points]
+
+            # if a line is not crossed, it is continue in lane
+            if len(intersection_points) == 0:
+                branch_types.append('continue')
+                continue
+
+            # if the end lanelet is in start road and line is crossed, it is u turn
+
+            end_lanelet = self.routing_graph.following(junction_path[-1])[0]
+            if end_lanelet in start_road_lanelets:
+                branch_types.append('uturn')
+                continue
+
+            end_road_lanelets = self.get_road_lanelets(end_lanelet)
+
+            path_ls = LaneletHelpers.get_path_ls(junction_path)
+
+            crossed_start_road_line = any([l in start_road_lanelets for l in crossed_lanelets])
+            crossed_end_road_line = any([l in end_road_lanelets for l in crossed_lanelets])
+
+            # if not(crossed_start_road_line and crossed_end_road_line) then u turn
+
+            # if line crossed is not in start road or end road, it is cross road
+            if not(crossed_start_road_line or crossed_end_road_line):
+                branch_types.append('cross')
+                continue
+
+            # if the crossed line is a boundary of one of the other entry lanelets, it is exit
+            branch_type = 'exit' if crossed_start_road_line else 'enter'
+
+            # get direction from heading change
+            start_point = BasicPoint2d(*path_ls.coords[0])
+            end_point = BasicPoint2d(*path_ls.coords[-1])
+            start_direction = LaneletHelpers.direction_at(junction_path[0], start_point)
+            end_direction = LaneletHelpers.direction_at(junction_path[-1], end_point)
+            dot = start_direction @ end_direction
+            det = np.linalg.det(np.vstack([start_direction, end_direction]))
+            heading_change = np.arctan2(det, dot)
+            direction = '_left' if heading_change > 0 else '_right'
+
+            branch_type += direction
+            branch_types.append(branch_type)goal
+
+        return junction_paths, branch_types
+
+    def get_junction_path(self, start_lanelet):
+        # get the list of lanelets until junction exit, starting from start_lanelet
+        # enter left, enter right, exit left, exit right, cross road, continue
+        # the end is the final virtual lanelet
+        # If this doesn't work out, another possibility: junction ends when there are no overlapping lanelets
+
+        path_length_limit = 10
+        path = []
+        current_lanelet = start_lanelet
+        while LaneletHelpers.virtual(current_lanelet):
+            assert len(path) < path_length_limit, 'Did not find end of junction path'
+            path.append(current_lanelet)
+            next_lanelets = self.routing_graph.following(current_lanelet)
+            if len(next_lanelets) != 1:
+                break
+            current_lanelet = next_lanelets[0]
+        if len(path) == 0:
+            path.append(start_lanelet)
+        return path
+
+    def get_road_lanelets(self, lanelet):
+        # get the set of lanelets in the same road
+        road_lanelets = {lanelet}
+        frontier = {lanelet}
+
+        while len(frontier) > 0:
+            current_lanelet = frontier.pop()
+            for l in self.routing_graph.passableLaneletSubmap().laneletLayer:
+                if not l in road_lanelets and LaneletHelpers.connected(current_lanelet, l):
+                    _, intersection_point = self.lanelet_crosses_line(l)
+                    if intersection_point is None:
+                        frontier.add(l)
+                        road_lanelets.add(l)
+        return road_lanelets
+
     def goal_type(self, state, goal, route):
         # get the goal type, based on the route
         goal_point = BasicPoint2d(*goal)

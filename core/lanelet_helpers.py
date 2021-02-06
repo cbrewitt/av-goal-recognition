@@ -1,7 +1,7 @@
 import shapely
 from lanelet2 import geometry
 from lanelet2.core import BasicPoint2d
-from shapely.geometry import Polygon, LineString
+from shapely.geometry import Polygon, LineString, Point
 from shapely.errors import TopologicalError
 import numpy as np
 import matplotlib.pyplot as plt
@@ -55,7 +55,14 @@ class LaneletHelpers:
     @staticmethod
     def left_of(a, b):
         # return true if a is left of b
-        return a.rightBound == b.leftBound
+        return a.rightBound.id == b.leftBound.id
+
+    @classmethod
+    def beside(cls, a, b):
+        return (a.leftBound.id == b.leftBound.id
+                or a.rightBound.id == b.rightBound.id
+                or a.leftBound.id == b.rightBound.id
+                or a.rightBound.id == b.leftBound.id)
 
     @classmethod
     def adjacent(cls, a, b):
@@ -64,11 +71,15 @@ class LaneletHelpers:
     @staticmethod
     def follows(a, b):
         # return true if a follows b
-        return a.rightBound[0] == b.rightBound[-1] and a.leftBound[0] == b.leftBound[-1]
+        return a.rightBound[0].id == b.rightBound[-1].id and a.leftBound[0].id == b.leftBound[-1].id
+
+    @classmethod
+    def can_pass(cls, a, b):
+        return cls.follows(a, b) or cls.follows(b, a) or cls.adjacent(a, b)
 
     @classmethod
     def connected(cls, a, b):
-        return cls.follows(a, b) or cls.follows(b, a) or cls.adjacent(a, b)
+        return cls.follows(a, b) or cls.follows(b, a) or cls.beside(a, b)
 
     @staticmethod
     def dist_from_center(point, lanelet):
@@ -83,6 +94,10 @@ class LaneletHelpers:
     @staticmethod
     def shapely_point_to_lanelet(p):
         return BasicPoint2d(p.x, p.y)
+
+    @staticmethod
+    def lanelet_point_to_shapely(p):
+        return Point(p.x, p.y)
 
     @classmethod
     def overlap_area(cls, l1, l2):
@@ -109,3 +124,14 @@ class LaneletHelpers:
         p = ls1_shapely.intersection(ls2_shapely)
         return cls.shapely_point_to_lanelet(p)
 
+    @staticmethod
+    def virtual(l):
+        return l.leftBound.attributes['type'] == 'virtual' and l.rightBound.attributes['type'] == 'virtual'
+
+    @staticmethod
+    def get_path_ls(path):
+        final_point = path[-1].centerline[-1]
+        lane_points = [(p.x, p.y) for l in path for p in list(l.centerline)[:-1]] \
+            + [(final_point.x, final_point.y)]
+        lane_ls = LineString(lane_points)
+        return lane_ls

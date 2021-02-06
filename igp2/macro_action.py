@@ -35,7 +35,6 @@ class ContinueLane(MacroAction):
         maneuvers = [FollowLane(agent_id, frame, feature_extractor, man_config)]
         return maneuvers
 
-
     @staticmethod
     def applicable(agent_id: int, frame: Frame, feature_extractor: FeatureExtractor, goal):
         #TODO "cross road", make sure that it is not a junction, and not crossing a road
