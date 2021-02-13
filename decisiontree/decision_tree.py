@@ -19,8 +19,9 @@ class Node:
         return current_node.value
 
     def __str__(self):
+        count_str = '' if self.counts == [None, None] else ' ' + str(self.counts)
         text = ''
-        text += '{0:.3f} {1}\n'.format(self.value, self.counts)
+        text += '{0:.3f}{1}\n'.format(self.value, count_str)
         if self.decision is not None:
             text += str(self.decision)
         return text

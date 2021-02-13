@@ -484,7 +484,7 @@ class FeatureExtractor:
             direction = '_left' if heading_change > 0 else '_right'
 
             branch_type += direction
-            branch_types.append(branch_type)goal
+            branch_types.append(branch_type)
 
         return junction_paths, branch_types
 

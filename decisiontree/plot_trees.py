@@ -23,5 +23,5 @@ for goal_idx, goal_types in scenario_trees[scenario_name].items():
     for goal_type, root in goal_types.items():
         graph = pydot.Dot(graph_type='digraph')
         build_pydot_tree(graph, root)
-        graph.write_png(get_img_dir() + 'handcrafted_tree_{}_G{}_{}.png'.format(
+        graph.write_pdf(get_img_dir() + 'handcrafted_tree_{}_G{}_{}.pdf'.format(
             scenario_name, goal_idx, goal_type))

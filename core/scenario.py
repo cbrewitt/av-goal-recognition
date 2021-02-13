@@ -293,9 +293,10 @@ class Scenario:
         config = ScenarioConfig.load(file_path)
         return cls(config)
 
-    def plot(self):
+    def plot(self, draw_road_markings=True):
         axes = plt.gca()
-        map_vis_lanelet2.draw_lanelet_map(self.lanelet_map, axes)
+        if draw_road_markings:
+            map_vis_lanelet2.draw_lanelet_map(self.lanelet_map, axes)
 
         # plot background image
         if self.config.background_image is not None:
@@ -319,4 +320,4 @@ class Scenario:
             circle = plt.Circle((x, y), 1.5/scale, color='r')
             axes.add_artist(circle)
             label = 'G{}'.format(idx)
-            axes.annotate(label, (x, y), color='white')
+            axes.annotate(label, (x-1, y-0.5), color='black')
