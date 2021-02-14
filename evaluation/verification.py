@@ -1,4 +1,5 @@
 from z3 import *
+import pandas as pd
 
 from decisiontree.decision_tree import Node, ThresholdDecision, BinaryDecision
 from core.feature_extraction import FeatureExtractor
@@ -42,6 +43,18 @@ def add_features(goal_name, suffix=''):
     return features
 
 
+def add_feature_constraints(features, solver):
+    # these features should take the same value for all goals
+    shared_features = ['speed', 'acceleration', 'angle_in_lane', 'vehicle_in_front_dist', 'vehicle_in_front_speed']
+    feature_types = {'scalar': Real, 'binary': Bool}
+
+    for feature_name in shared_features:
+        feature_type = FeatureExtractor.feature_names[feature_name]
+        feature = feature_types[feature_type](feature_name)
+        for goal_idx, goal_features in features.items():
+            solver.add(feature == goal_features[feature_name])
+
+
 def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
     probs = {}
     features = {}
@@ -55,6 +68,8 @@ def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
         probs[goal_idx] = prob
         features[goal_idx] = goal_features
 
+    add_feature_constraints(features, solver)
+
     # get normalised probabilities
     prob_sum = 0
     for prob in probs.values():
@@ -67,6 +82,23 @@ def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
         solver.add(prob_norm == probs[goal_idx] / prob_sum)
 
     return features, probs_norm
+
+
+def extract_counter_example(solver, features):
+    # get the feature values which act as a counterexample
+    feature_values_list = []
+    for goal_idx, goal_features in features.items():
+        for feature_name, feature in goal_features.items():
+            value_str = str(solver.model()[feature])
+            if value_str == 'True':
+                value = True
+            elif value_str == 'False':
+                value = False
+            else:
+                value = float(eval(value_str))
+
+            feature_values_list.append({'goal_idx': goal_idx, 'feature': feature_name, 'value': value})
+    return pd.DataFrame(feature_values_list)
 
 
 def main():
