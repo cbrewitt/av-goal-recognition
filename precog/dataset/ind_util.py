@@ -5,9 +5,11 @@ from typing import List
 import numpy as np
 import cv2 as cv
 import os
+import copy
 
 from shapely.geometry import LineString
 from core.base import get_data_dir
+from core.scenario import AgentState
 
 
 def collapse(arr):
@@ -43,7 +45,8 @@ class InDConfig:
 
         # Predict 2 seconds in the future with 2 seconds of past.
         self.past_horizon_seconds = 2  # Tp
-        self.future_horizon_seconds = 2  # Tf
+        self.future_horizon_seconds = 4  # Tf
+        self.use_padding = True
 
         # The number of samples we need.
         self.future_horizon_length = int(round(self.future_horizon_seconds * self.frame_rate))
@@ -232,10 +235,20 @@ class InDMultiagentDatum:
 
         for agent_id in agents_to_include:
             agent = episode.agents[agent_id]
-            local_frame = reference_frame - agent.initial_frame
+            if cfg.use_padding:
+                state_history, (lp, rp) = InDMultiagentDatum.pad_trajectory(
+                    agent.state_history,
+                    reference_frame - cfg.past_horizon_length,
+                    reference_frame + cfg.future_horizon_length,
+                    cfg
+                )
+                local_frame = reference_frame - (agent.initial_frame - lp)
+            else:
+                state_history = agent.state_history
+                local_frame = reference_frame - agent.initial_frame
 
             # Interpolate for past trajectory
-            agent_past_trajectory = agent.state_history[local_frame - cfg.past_horizon_length:local_frame]
+            agent_past_trajectory = state_history[local_frame - cfg.past_horizon_length:local_frame]
             past_timestamps = -np.arange(0, cfg.past_horizon_seconds, cfg.inv_frame_rate)[::-1]
             agent_past_interpolated = InDMultiagentDatum.interpolate_trajectory(agent_past_trajectory,
                                                                                 cfg.target_past_times,
@@ -243,14 +256,14 @@ class InDMultiagentDatum:
             all_agent_pasts.append(agent_past_interpolated)
 
             # Interpolation for future trajectory
-            agent_future_trajectory = agent.state_history[local_frame:local_frame + cfg.future_horizon_length]
+            agent_future_trajectory = state_history[local_frame:local_frame + cfg.future_horizon_length]
             future_timestamps = np.arange(cfg.future_horizon_seconds, 0.0, -cfg.inv_frame_rate)[::-1]
             agent_future_interpolated = InDMultiagentDatum.interpolate_trajectory(agent_future_trajectory,
                                                                                   cfg.target_future_times,
                                                                                   future_timestamps)
             all_agent_futures.append(agent_future_interpolated)
 
-            all_agent_yaws.append(agent.state_history[local_frame - 1].heading)
+            all_agent_yaws.append(state_history[local_frame - 1].heading)
 
             agent_dims.append([agent.width, agent.length, agent.agent_type])
 
@@ -313,6 +326,39 @@ class InDMultiagentDatum:
         image[~mask] = 0
 
         return image, visualisation
+
+    @staticmethod
+    def pad_trajectory(trajectory, initial_frame, final_frame, cfg):
+        agent_initial_frame = trajectory[0].frame_id
+        agent_final_frame = trajectory[-1].frame_id
+
+        pad_left = 0
+        pad_right = 0
+        if initial_frame < agent_final_frame < final_frame:
+            pad_right = final_frame - agent_final_frame
+        if initial_frame < agent_initial_frame < final_frame:
+            pad_left = agent_initial_frame - initial_frame
+
+        # Create constant-velocity lane-follow padding
+        left = []
+        f = trajectory[0]
+        for i in range(pad_left, 0, -1):
+            pad = copy.copy(f)
+            pad.frame_id = f.frame_id - i
+            pad.x = f.x - cfg.inv_frame_rate * i * f.v_x
+            pad.y = f.y - cfg.inv_frame_rate * i * f.v_y
+            left.append(pad)
+
+        right = []
+        f = trajectory[-1]
+        for i in range(1, pad_right + 1):
+            pad = copy.copy(f)
+            pad.frame_id = f.frame_id + i
+            pad.x = f.x + cfg.inv_frame_rate * i * f.v_x
+            pad.y = f.y + cfg.inv_frame_rate * i * f.v_y
+            right.append(pad)
+
+        return left + trajectory + right, (pad_left, pad_right)
 
     @staticmethod
     def get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg):
