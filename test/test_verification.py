@@ -75,7 +75,7 @@ def test_z3_model_g0():
     s = Solver()
     model = get_goal_tree_model()
     reachable_goals = [(0, 'straight-on'), (1, 'turn-left')]
-    features, probs = add_goal_tree_model(reachable_goals, s, model)
+    features, probs, likelihoods = add_goal_tree_model(reachable_goals, s, model)
 
     verify_expr = Implies(And(features[0]['in_correct_lane'],
                               Not(features[1]['in_correct_lane']),
@@ -92,7 +92,7 @@ def test_z3_model_g1():
     s = Solver()
     model = get_goal_tree_model()
     reachable_goals = [(0, 'straight-on'), (1, 'turn-left')]
-    features, probs = add_goal_tree_model(reachable_goals, s, model)
+    features, probs, likelihoods = add_goal_tree_model(reachable_goals, s, model)
 
     verify_expr = Implies(And(features[0]['in_correct_lane'],
                               Not(features[1]['in_correct_lane']),

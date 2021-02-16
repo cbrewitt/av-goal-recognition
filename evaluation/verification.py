@@ -43,14 +43,14 @@ def add_features(goal_name, suffix=''):
     return features
 
 
-def add_feature_constraints(features, solver):
+def add_feature_constraints(features, solver, suffix=''):
     # these features should take the same value for all goals
     shared_features = ['speed', 'acceleration', 'angle_in_lane', 'vehicle_in_front_dist', 'vehicle_in_front_speed']
     feature_types = {'scalar': Real, 'binary': Bool}
 
     for feature_name in shared_features:
         feature_type = FeatureExtractor.feature_names[feature_name]
-        feature = feature_types[feature_type](feature_name)
+        feature = feature_types[feature_type](feature_name + suffix)
         for goal_idx, goal_features in features.items():
             solver.add(feature == goal_features[feature_name])
 
@@ -58,6 +58,7 @@ def add_feature_constraints(features, solver):
 def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
     probs = {}
     features = {}
+    likelihoods = {}
     for goal_idx, goal_type in reachable_goals:
         prior = float(model.goal_priors.loc[(model.goal_priors.true_goal == goal_idx)
                                             & (model.goal_priors.true_goal_type == goal_type), 'prior'])
@@ -67,8 +68,9 @@ def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
         prob = likelihood * prior
         probs[goal_idx] = prob
         features[goal_idx] = goal_features
+        likelihoods[goal_idx] = likelihood
 
-    add_feature_constraints(features, solver)
+    add_feature_constraints(features, solver, suffix)
 
     # get normalised probabilities
     prob_sum = 0
@@ -81,24 +83,41 @@ def add_goal_tree_model(reachable_goals, solver, model, suffix=''):
         probs_norm[goal_idx] = prob_norm
         solver.add(prob_norm == probs[goal_idx] / prob_sum)
 
-    return features, probs_norm
+    return features, probs_norm, likelihoods
 
 
-def extract_counter_example(solver, features):
+def extract_counter_example(solver, features, probs, likelihoods):
     # get the feature values which act as a counterexample
-    feature_values_list = []
+    feature_values = pd.DataFrame(index=FeatureExtractor.feature_names, columns=features)
     for goal_idx, goal_features in features.items():
         for feature_name, feature in goal_features.items():
             value_str = str(solver.model()[feature])
-            if value_str == 'True':
+            if value_str == 'None':
+                value = None
+            elif value_str == 'True':
                 value = True
             elif value_str == 'False':
                 value = False
             else:
                 value = float(eval(value_str))
+            feature_values.loc[feature_name, goal_idx] = value
 
-            feature_values_list.append({'goal_idx': goal_idx, 'feature': feature_name, 'value': value})
-    return pd.DataFrame(feature_values_list)
+    for goal_idx, goal_prob in probs.items():
+        value_str = str(solver.model()[goal_prob])
+        if value_str == 'None':
+            value = None
+        else:
+            value = float(eval(value_str))
+        feature_values.loc['goal probability', goal_idx] = value
+
+    for goal_idx, likelihood in likelihoods.items():
+        value_str = str(solver.model()[likelihood])
+        if value_str == 'None':
+            value = None
+        else:
+            value = float(eval(value_str))
+        feature_values.loc['goal likelihood', goal_idx] = value
+    return feature_values
 
 
 def main():
@@ -108,7 +127,7 @@ def main():
 
     s = Solver()
 
-    features, probs = add_goal_tree_model(reachable_goals, s, model)
+    features, probs, likelihoods = add_goal_tree_model(reachable_goals, s, model)
 
     # unsatisfiable if G2 always has highest prob
     verify_expr = Implies(And(features[1]['in_correct_lane'], Not(features[2]['in_correct_lane'])), probs[2] < probs[1])
