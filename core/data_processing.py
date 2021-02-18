@@ -129,7 +129,7 @@ def main():
     args = parser.parse_args()
 
     if args.scenario is None:
-        scenarios = ['heckstrasse', 'bendplatz', 'frankenberg']
+        scenarios = ['heckstrasse', 'bendplatz', 'frankenberg', 'round']
     else:
         scenarios = [args.scenario]
 
