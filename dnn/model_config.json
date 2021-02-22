@@ -1,0 +1,11 @@
+{
+  "dataset": "trajectory",
+  "shuffle": true,
+  "batch_size": 1000,
+  "max_epoch": 1000,
+  "dropout": 0.5,
+  "lr": 0.01,
+  "hidden_dim": 100,
+  "scenario": "heckstrasse",
+  "save_path": "."
+}

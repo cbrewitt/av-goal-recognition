@@ -195,16 +195,16 @@ class IndEpisodeLoader(EpisodeLoader):
         tracks, static_info, meta_info = read_from_csv(
             track_file, static_tracks_file, recordings_meta_file)
 
-        num_frames = round(meta_info['frameRate'] * meta_info['duration'])
+        num_frames_duration = round(meta_info['frameRate'] * meta_info['duration'])
 
         agents = {}
-        frames = [Frame(i) for i in range(num_frames)]
+        frames = [Frame(i) for i in range(num_frames_duration)]
 
         for track_meta in static_info:
             agent_meta = self._agent_meta_from_track_meta(track_meta)
             state_history = []
             track = tracks[agent_meta.agent_id]
-            num_frames = agent_meta.final_frame - agent_meta.initial_frame + 1
+            num_frames = min(num_frames_duration, agent_meta.final_frame - agent_meta.initial_frame + 1)
             for idx in range(num_frames):
                 state = self._state_from_tracks(track, idx)
                 state_history.append(state)
@@ -266,13 +266,16 @@ class Scenario:
         #     print(error)
         return lanelet_map
 
-    def load_episodes(self):
+    def load_episodes(self, episode_idx=None):
         loader = EpisodeLoaderFactory.get_loader(self.config)
         episodes = []
         for idx, c in enumerate(self.config.episodes):
+            if episode_idx is not None and idx not in episode_idx:
+                continue
             print('loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
             episode = loader.load(EpisodeConfig(c))
             episodes.append(episode)
+            # break
         return episodes
 
     def load_episode(self, episode_id):

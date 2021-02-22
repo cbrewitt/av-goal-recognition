@@ -10,12 +10,15 @@ from core.generate_dataset_split import load_dataset_splits
 
 def get_dataset(scenario_name, subset='train', features=True):
     data_set_splits = load_dataset_splits()
-    episode_idxes = data_set_splits[scenario_name][subset]
+    if subset is not None:
+        episode_idxes = data_set_splits[scenario_name][subset]
+    else:
+        episode_idxes = range(data_set_splits[scenario_name]["total"])
     episode_training_sets = []
 
     for episode_idx in episode_idxes:
         episode_training_set = pd.read_csv(
-            get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx, subset))
+            get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx))
         episode_training_set['episode'] = episode_idx
         episode_training_sets.append(episode_training_set)
     training_set = pd.concat(episode_training_sets)

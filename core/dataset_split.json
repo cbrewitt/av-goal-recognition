@@ -1,5 +1,6 @@
 {
   "heckstrasse": {
+    "total": 3,
     "train": [
       2
     ],
@@ -11,6 +12,7 @@
     ]
   },
   "bendplatz": {
+    "total": 11,
     "train": [
       7,
       4,
@@ -30,6 +32,7 @@
     ]
   },
   "frankenberg": {
+    "total": 11,
     "train": [
       10,
       1,
@@ -49,6 +52,7 @@
     ]
   },
   "round": {
+    "total": 22,
     "train": [
       0,
       1,
