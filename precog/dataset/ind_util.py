@@ -32,10 +32,10 @@ class InDConfig:
         self.recordings_meta = recordings_meta
         self.draw_map = draw_map
 
-        self._create_config()
+        self._create_config(scenario)
         self.scenario_features = self._process_scenario(scenario)
 
-    def _create_config(self):
+    def _create_config(self, scenario):
         self.frame_rate = self.recordings_meta["frameRate"]  # Hz
         self.inv_frame_rate = 1 / self.frame_rate
 
@@ -57,7 +57,10 @@ class InDConfig:
         # There is no dedicated ego vehicle
         self.min_relevant_agents = 1  # A
 
-        self.downsample_factor = 1 / 3
+        if scenario.config.name == "round":
+            self.downsample_factor = 1 / 4
+        else:
+            self.downsample_factor = 1 / 3
         self.image_dims = (900, 700)
 
         self.vehicle_colors = {
@@ -307,9 +310,7 @@ class InDMultiagentDatum:
         agents_layer = InDMultiagentDatum.get_agent_boxes(scenario, agent_poses, agent_yaws, agent_dims, cfg)
         features_list.append(agents_layer)
 
-        features_list = [cv.resize(layer[:cfg.image_dims[1], :cfg.image_dims[0]], (0, 0),
-                                   fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_AREA)
-                         for layer in features_list]
+        features_list = InDMultiagentDatum.crop_resize_features(features_list, scenario, cfg)
         image = np.stack(features_list, axis=-1)
 
         visualisation = collapse(image).copy()
@@ -326,6 +327,17 @@ class InDMultiagentDatum:
         image[~mask] = 0
 
         return image, visualisation
+
+    @staticmethod
+    def crop_resize_features(features_list, scenario, cfg):
+        if scenario.config.name == "round":
+            return [cv.resize(layer[100:, 100:], (0, 0),
+                              fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_AREA)
+                    for layer in features_list]
+        else:
+            return [cv.resize(layer[:cfg.image_dims[1], :cfg.image_dims[0]], (0, 0),
+                              fx=cfg.downsample_factor, fy=cfg.downsample_factor, interpolation=cv.INTER_AREA)
+                    for layer in features_list]
 
     @staticmethod
     def pad_trajectory(trajectory, initial_frame, final_frame, cfg):
