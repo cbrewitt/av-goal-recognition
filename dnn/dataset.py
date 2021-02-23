@@ -1,33 +1,14 @@
 import pandas as pd
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
-
-from core.generate_dataset_split import load_dataset_splits
-
-
-class GRITDataset(Dataset):
-    def __init__(self, scenario_name, split_type="train"):
-        self.scenario_name = scenario_name
-        self.split_type = split_type
-        self.dataset_split = load_dataset_splits()[self.scenario_name][self.split_type]
-
-        self.dataset = None
-        self.labels = None
-        self.lengths = None
-
-    def __len__(self):
-        return self.dataset.shape[0]
-
-    def __getitem__(self, index):
-        return self.dataset[index], self.labels[index], self.lengths[index]
-
 
 from core.base import get_scenario_config_dir
 from core.feature_extraction import GoalDetector
 from core.scenario import Scenario
 from core.data_processing import get_dataset
+
+from dnn.dataset_base import GRITDataset
 
 
 class GRITTrajectoryDataset(GRITDataset):
