@@ -11,7 +11,7 @@ import sys
 from dnn.train import train
 
 grid_search_params = {
-    "hidden_dim": np.logspace(1, 14, 14, base=2, dtype=int),
+    "hidden_dim": np.logspace(1, 15, 10, base=2, dtype=int),
     "lr": np.logspace(-5, -1, 10),
     "dropout": np.arange(0.0, 1.0, 0.1)
 }

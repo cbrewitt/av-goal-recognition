@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
-from dnn.dataset import DATASET_MAP, GRITDataset
+from dnn.dataset_base import GRITDataset
 from dnn.model import LSTMModel
 
 logger = logging.getLogger()
@@ -49,6 +49,7 @@ def run_evaluation(model, loss_fn, data_loader, device, use_encoding=False):
 def load_save_dataset(config, split_type="train"):
     dataset_path = f"datasets/{config.scenario}_{config.dataset}_{split_type}.pt"
     if not os.path.exists(dataset_path):
+        from dataset import DATASET_MAP
         dataset_cls = DATASET_MAP[config.dataset]
         dataset = dataset_cls(config.scenario, split_type)
         torch.save({"dataset": dataset.dataset,
@@ -60,7 +61,7 @@ def load_save_dataset(config, split_type="train"):
         dataset = GRITDataset(config.scenario, split_type)
         dataset.dataset = dataset_dict["dataset"]
         dataset.labels = dataset_dict["labels"]
-        dataset.length = dataset_dict["lengths"]
+        dataset.lengths = dataset_dict["lengths"]
     return dataset
 
 
@@ -102,6 +103,8 @@ def train(config):
 
     logger.info("Starting gradient descent:")
     for epoch in range(config.max_epoch):
+        model.train()
+
         for i_batch, sample_batched in enumerate(data_loader):
             trajectories = sample_batched[0].to(device)
             target = sample_batched[1].to(device)
@@ -115,6 +118,8 @@ def train(config):
             optim.step()
 
             logger.info(f"Epoch: {epoch}; Step: {len(data_loader) * epoch + i_batch}; Loss: {loss.item()}")
+
+        model.eval()
 
         val_loss, accuracy = run_evaluation(model, loss_fn, val_loader, device, use_encoding=False)
         schedule.step(val_loss)
