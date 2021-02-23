@@ -2,6 +2,7 @@ import json
 import argparse
 import logging
 import os
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -98,17 +99,18 @@ def train(config):
             logger.info(f"Epoch: {epoch}; Step: {len(data_loader) * epoch + i_batch}; Loss: {loss.item()}")
 
         val_loss, accuracy = run_evaluation(model, loss_fn, val_loader, device, use_encoding=False)
-        save_checkpoint(config.save_path + f"_latest.pt", epoch, model, optim, losses, accs)
+        schedule.step(val_loss)
+        logger.info(f"Validation Loss: {val_loss.item()}; Accuracy {accuracy.item()} "
+                    f"LR: {optim.param_groups[0]['lr']}")
+
+        save_checkpoint(config.save_path + f"_latest.pt", epoch, model, optim, np.array(losses), np.array(accs))
         if len(losses) < 1 or val_loss < min(losses):
-            save_checkpoint(config.save_path + f"_best.pt", epoch, model, optim, losses, accs)
+            logger.info("Saving best model")
+            save_checkpoint(config.save_path + f"_best.pt", epoch, model, optim, np.array(losses), np.array(accs))
         losses.append(val_loss.item())
         accs.append(accuracy.item())
 
-        schedule.step(val_loss)
-
-        logger.info(f"Validation Loss: {val_loss.item()}; Accuracy {accuracy.item()} "
-                    f"LR: {optim.param_groups[0]['lr']}")
-    return losses, accs
+    return np.array(losses), np.array(accs)
 
 
 if __name__ == '__main__':
