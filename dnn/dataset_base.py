@@ -1,6 +1,14 @@
+import json
+
 from torch.utils.data import Dataset
 
-from core.generate_dataset_split import load_dataset_splits
+from core.base import get_base_dir
+
+
+def load_dataset_splits():
+    with open(get_base_dir() + '/core/dataset_split.json', 'r') as f:
+        return json.load(f)
+
 
 class GRITDataset(Dataset):
     def __init__(self, scenario_name, split_type="train"):
