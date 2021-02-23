@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
-from dnn.dataset import DATASET_MAP
+from dnn.dataset import DATASET_MAP, GRITDataset
 from dnn.model import LSTMModel
 
 logger = logging.getLogger()
@@ -46,16 +46,34 @@ def run_evaluation(model, loss_fn, data_loader, device, use_encoding=False):
         return val_loss, accuracy, encoding_losses
 
 
+def load_save_dataset(config, split_type="train"):
+    dataset_path = f"datasets/{config.scenario}_{config.dataset}_{split_type}.pt"
+    if not os.path.exists(dataset_path):
+        dataset_cls = DATASET_MAP[config.dataset]
+        dataset = dataset_cls(config.scenario, split_type)
+        torch.save({"dataset": dataset.dataset,
+                    "labels": dataset.labels,
+                    "lengths": dataset.lengths},
+                   dataset_path)
+    else:
+        dataset_dict = torch.load(dataset_path)
+        dataset = GRITDataset(config.scenario, split_type)
+        dataset.dataset = dataset_dict["dataset"]
+        dataset.labels = dataset_dict["labels"]
+        dataset.length = dataset_dict["lengths"]
+    return dataset
+
+
 def train(config):
     if hasattr(config, "config"):
         config = argparse.Namespace(**json.load(open(config.config)))
     logger.info(config)
 
-    # Process and load the datasets
-    dataset_cls = DATASET_MAP[config.dataset]
-    dataset = dataset_cls(config.scenario, "train")
+    # Process and save/load the datasets
+    dataset = load_save_dataset(config, "train")
     data_loader = DataLoader(dataset, shuffle=config.shuffle, batch_size=min(config.batch_size, len(dataset)))
-    val_dataset = dataset_cls(config.scenario, "valid")
+
+    val_dataset = load_save_dataset(config, "valid")
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=len(val_dataset))
 
     # Create model and send to device

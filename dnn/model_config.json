@@ -1,5 +1,5 @@
 {
-  "dataset": "trajectory",
+  "dataset": "features",
   "shuffle": true,
   "batch_size": 1000,
   "max_epoch": 1000,

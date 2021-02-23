@@ -4,10 +4,6 @@ import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 
-from core.base import get_scenario_config_dir
-from core.feature_extraction import GoalDetector
-from core.scenario import Scenario
-from core.data_processing import get_dataset
 from core.generate_dataset_split import load_dataset_splits
 
 
@@ -26,6 +22,12 @@ class GRITDataset(Dataset):
 
     def __getitem__(self, index):
         return self.dataset[index], self.labels[index], self.lengths[index]
+
+
+from core.base import get_scenario_config_dir
+from core.feature_extraction import GoalDetector
+from core.scenario import Scenario
+from core.data_processing import get_dataset
 
 
 class GRITTrajectoryDataset(GRITDataset):
