@@ -271,10 +271,12 @@ class Scenario:
         #     print(error)
         return lanelet_map
 
-    def load_episodes(self):
+    def load_episodes(self, indices=None):
         loader = EpisodeLoaderFactory.get_loader(self.config)
         episodes = []
         for idx, c in enumerate(self.config.episodes):
+            if indices is not None and idx not in indices:
+                continue
             print('Loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
             episode = loader.load(EpisodeConfig(c))
             episodes.append(episode)

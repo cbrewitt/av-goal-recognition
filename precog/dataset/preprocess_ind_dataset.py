@@ -19,15 +19,19 @@ def dict_list_contains(d, elem):
         if elem in v:
             return k
 
-def overlaps(a, b):
+
+def overlap(a, b):
     """ Return the overlap between two intervals given as tuples"""
     return min(a[1], b[1]) - max(a[0], b[0])
 
 
-def prepare_precog(scenario_name, root_dir):
+def prepare_precog(scenario_name, root_dir, generate_fracs=False):
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
-    episodes = scenario.load_episodes()
     dataset_split = json.load(open(os.path.join(get_core_dir(), "dataset_split.json")))
+    if not generate_fracs:
+        episodes = scenario.load_episodes()
+    else:
+        episodes = scenario.load_episodes(dataset_split[scenario_name]["test"])
 
     count = 0
     prev_split = ""
@@ -78,7 +82,19 @@ def prepare_precog(scenario_name, root_dir):
                     if agent.initial_frame <= ref_frame <= agent.final_frame:
                         valid_agent_ids.append(agent_id)
 
-            if len(valid_agent_ids) >= cfg.min_relevant_agents:
+            if generate_fracs:
+                for idx, agent_id in enumerate(valid_agent_ids, 1):
+                    trajectory_length = len(episode.agents[agent_id].state_history)
+                    start_frame_id = episode.agents[agent_id].initial_frame
+                    end_frame_id = episode.agents[agent_id].final_frame
+                    observed = overlap((start_frame_id, end_frame_id), (initial_frame, final_frame))
+                    df_list.append({"batch_id": count, "agent_id": idx,
+                                    "orig_agent_id": agent_id, "frac_total_observed": observed / trajectory_length,
+                                    "frac_window_observed": observed / cfg.total_length})
+                if len(valid_agent_ids) > 0:
+                    count += 1
+
+            elif len(valid_agent_ids) >= cfg.min_relevant_agents:
                 datum = InDMultiagentDatum.from_ind_trajectory(
                     valid_agent_ids, goals, episode, scenario, ref_frame, cfg)
 
@@ -86,6 +102,10 @@ def prepare_precog(scenario_name, root_dir):
                 with open(os.path.join(path_to_split, f"ma_datum_{count:06d}.dill"), "wb") as f:
                     dill.dump(datum, f)
                 count += 1
+
+    if generate_fracs:
+        df = pd.DataFrame(df_list)
+        df.to_csv(f"{scenario_name}_traj_fracs.csv")
 
 
 def prepare_dt(scenario_name, samples_per_trajectory=10):
@@ -187,6 +207,8 @@ def main():
     parser = argparse.ArgumentParser(description='Process the dataset')
     parser.add_argument('--scenario', type=str, help='Name of scenario to process', default=None)
     parser.add_argument('--type', type=str, help="Name of goal prediction method", default="precog")
+    parser.add_argument("--fracs", "-f", action="store_true", help="Whether to generate fractions of obsvered "
+                                                                   "trajectory instead of pre-processing the data")
     args = parser.parse_args()
 
     precog_path = os.path.join(get_data_dir(), "precog")
@@ -210,7 +232,7 @@ def main():
         print(f"Processing {len(scenarios)} scenarios for {args.type}.")
         print('Processing dataset for scenario: ' + scenario_name)
         if args.type == "precog":
-            prepare_precog(scenario_name, scenario_path)
+            prepare_precog(scenario_name, scenario_path, args.fracs)
         elif args.type == "dt":
             prepare_dt(scenario_name)
 
