@@ -88,8 +88,11 @@ def prepare_precog(scenario_name, root_dir, generate_fracs=False):
                     start_frame_id = episode.agents[agent_id].initial_frame
                     end_frame_id = episode.agents[agent_id].final_frame
                     observed = overlap((start_frame_id, end_frame_id), (initial_frame, final_frame))
+                    frac_before_goal = (min(end_frame_id + 1, final_frame) - start_frame_id) / trajectory_length
                     df_list.append({"batch_id": count, "agent_id": idx,
-                                    "orig_agent_id": agent_id, "frac_total_observed": observed / trajectory_length,
+                                    "orig_agent_id": agent_id,
+                                    "frac_before_goal": frac_before_goal,
+                                    "frac_total_observed": observed / trajectory_length,
                                     "frac_window_observed": observed / cfg.total_length})
                 if len(valid_agent_ids) > 0:
                     count += 1
