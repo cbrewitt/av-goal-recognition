@@ -7,7 +7,7 @@ from core.feature_extraction import GoalDetector
 from core.scenario import Scenario
 from core.data_processing import get_dataset
 
-from dnn.dataset_base import GRITDataset
+from lstm.dataset_base import GRITDataset
 
 
 class GRITTrajectoryDataset(GRITDataset):

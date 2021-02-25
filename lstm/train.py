@@ -9,8 +9,8 @@ import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
-from dnn.dataset_base import GRITDataset
-from dnn.model import LSTMModel
+from lstm.dataset_base import GRITDataset
+from lstm.model import LSTMModel
 
 logger = logging.getLogger()
 

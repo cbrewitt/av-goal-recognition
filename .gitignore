@@ -135,4 +135,5 @@ dmypy.json
 # project data folders
 data/
 images/
-dnn/grid_search/
+lstm/grid_search/
+lstm/datasets/

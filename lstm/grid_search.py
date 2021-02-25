@@ -1,6 +1,5 @@
 import itertools
 import argparse
-import sys
 import os
 import numpy as np
 import logging
@@ -8,7 +7,7 @@ import copy
 import torch
 import pandas as pd
 import sys
-from dnn.train import train
+from lstm.train import train
 
 grid_search_params = {
     "hidden_dim": np.logspace(1, 15, 10, base=2, dtype=int),
