@@ -195,7 +195,7 @@ class IndEpisodeLoader(EpisodeLoader):
         tracks, static_info, meta_info = read_from_csv(
             track_file, static_tracks_file, recordings_meta_file)
 
-        num_frames = round(meta_info['frameRate'] * meta_info['duration'])
+        num_frames = round(meta_info['frameRate'] * meta_info['duration']) + 1
 
         agents = {}
         frames = [Frame(i) for i in range(num_frames)]
@@ -204,8 +204,8 @@ class IndEpisodeLoader(EpisodeLoader):
             agent_meta = self._agent_meta_from_track_meta(track_meta)
             state_history = []
             track = tracks[agent_meta.agent_id]
-            num_frames = agent_meta.final_frame - agent_meta.initial_frame + 1
-            for idx in range(num_frames):
+            num_agent_frames = agent_meta.final_frame - agent_meta.initial_frame + 1
+            for idx in range(num_agent_frames):
                 state = self._state_from_tracks(track, idx)
                 state_history.append(state)
                 frames[state.frame_id].add_agent_state(agent_meta.agent_id, state)

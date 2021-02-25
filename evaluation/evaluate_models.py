@@ -16,7 +16,7 @@ models = {'prior_baseline': PriorBaseline,
           'handcrafted_trees': HandcraftedGoalTrees,
           'trained_trees': TrainedDecisionTrees}
 
-dataset_names = ['train', 'test']
+dataset_names = ['train', 'valid', 'test']
 
 accuracies = pd.DataFrame(index=models.keys(), columns=dataset_names)
 cross_entropies = pd.DataFrame(index=models.keys(), columns=dataset_names)

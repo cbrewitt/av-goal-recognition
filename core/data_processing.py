@@ -87,13 +87,15 @@ def prepare_dataset(scenario_name, samples_per_trajectory=10):
 
             # iterate through "samples_per_trajectory" points
             true_goal_idx = goals[agent_id]
+            true_goal_types = scenario.config.goal_types[true_goal_idx]
             if (len(reachable_goals_list) > samples_per_trajectory
                     and reachable_goals_list[0][true_goal_idx] is not None):
 
                 # get true goal
                 true_goal_loc = scenario.config.goals[true_goal_idx]
                 true_goal_route = reachable_goals_list[0][true_goal_idx]
-                true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route)
+                true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route,
+                                                             true_goal_types)
 
                 step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
                 max_idx = step_size * samples_per_trajectory

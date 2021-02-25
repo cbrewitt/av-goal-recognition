@@ -30,7 +30,8 @@ class BayesianGoalRecogniser:
                 goal_prob = 0
             else:
                 # get un-normalised "probability"
-                prior = self.get_goal_prior(goal_idx, state_history[0], route)
+                goal_types = self.scenario.config.goal_types[goal_idx]
+                prior = self.get_goal_prior(goal_idx, state_history[0], route, goal_types)
                 if prior == 0:
                     goal_prob = 0
                 else:
@@ -120,9 +121,9 @@ class BayesianGoalRecogniser:
     def load_priors(scenario_name):
         return pd.read_csv(get_data_dir() + scenario_name + '_priors.csv')
 
-    def get_goal_prior(self, goal_idx, state, route):
+    def get_goal_prior(self, goal_idx, state, route, goal_types=None):
         goal_loc = self.scenario.config.goals[goal_idx]
-        goal_type = self.feature_extractor.goal_type(state, goal_loc, route)
+        goal_type = self.feature_extractor.goal_type(state, goal_loc, route, goal_types)
         prior_series = self.goal_priors.loc[(self.goal_priors.true_goal == goal_idx) & (self.goal_priors.true_goal_type == goal_type)].prior
         if prior_series.shape[0] == 0:
             return 0
