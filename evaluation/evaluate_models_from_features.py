@@ -1,9 +1,11 @@
+import pickle
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-from core.base import get_scenario_config_dir
+from core.base import get_scenario_config_dir, get_data_dir
 from core.data_processing import get_dataset
 from decisiontree.dt_goal_recogniser import TrainedDecisionTrees
 from goalrecognition.goal_recognition import PriorBaseline
@@ -83,7 +85,9 @@ def main():
     print('\naverage min probability:')
     print(avg_min_prob)
 
-    plots = {}
+    pickle.dump((models, predictions, unique_samples, accuracy),
+                open(get_data_dir() + "grit_eval_data.p", "wb"))
+
     for scenario_name in scenario_names:
 
         fig, ax_0 = plt.subplots()
@@ -113,9 +117,6 @@ def main():
         plt.title('Normalised Entropy ({})'.format(scenario_name))
         plt.ylim([0, 1])
         plt.show()
-
-        plots[scenario] = (ax_0, ax_1)
-    return plots
 
 
 if __name__ == '__main__':

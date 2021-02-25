@@ -23,8 +23,9 @@ def main(cfg, get_dataframe=False):
     log.info(json.dumps(cfg, indent=2))
 
     dataframes = {}
-    sns.set_style("darkgrid")
-    fig, ax = plt.subplots(1, 2, figsize=(10, 6))
+    if not get_dataframe:
+        sns.set_style("darkgrid")
+        fig, ax = plt.subplots(1, 2, figsize=(10, 6))
     for scenario in scenarios:
         log.info(f"Summary for scenario {scenario}:")
         results = pd.read_csv(os.path.join(results_directory, f"ind_{scenario}/results.csv"))
@@ -52,8 +53,9 @@ def main(cfg, get_dataframe=False):
         log.info(f"Average normalised sample entropy: {h.mean():.3f}+-{h.sem():.3f}")
 
         results["entropy"] = h
-        sns.lineplot(data=results, x="rounded_frac_before_goal", y="adj_accuracy", ax=ax[0])
-        sns.lineplot(data=results, x="rounded_frac_before_goal", y="entropy", ax=ax[1])
+        if not get_dataframe:
+            sns.lineplot(data=results, x="rounded_frac_before_goal", y="adj_accuracy", ax=ax[0])
+            sns.lineplot(data=results, x="rounded_frac_before_goal", y="entropy", ax=ax[1])
 
         dataframes[scenario] = results
         log.info("")
