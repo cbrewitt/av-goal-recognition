@@ -13,6 +13,12 @@ from lstm.dataset_base import GRITDataset
 from lstm.model import LSTMModel
 
 logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s] - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
 
 def save_checkpoint(path, epoch, model, optimizer, losses, accs):
@@ -35,10 +41,16 @@ def run_evaluation(model, loss_fn, data_loader, device, use_encoding=False):
 
     output, (encoding, lengths) = model(input, use_encoding=use_encoding)
 
-    val_loss = loss_fn(output, target)
+    val_loss = 0.0
+    if use_encoding:
+        for h_t in encoding.transpose(0, 1):
+            val_loss += loss_fn(h_t, target)
+    val_loss += loss_fn(output, target)
+    val_loss /= encoding.shape[1] + 1
+
     accuracy = sum(output.argmax(axis=1) == target) / target.shape[0]
     if not use_encoding:
-        return val_loss, accuracy
+        return val_loss, accuracy, None
     else:
         t = encoding.shape[1]
         encoding_losses = nn.CrossEntropyLoss(reduction="none")(
@@ -66,6 +78,8 @@ def load_save_dataset(config, split_type="train"):
 
 
 def train(config):
+    torch.random.manual_seed(42)
+
     if hasattr(config, "config"):
         config = argparse.Namespace(**json.load(open(config.config)))
     logger.info(config)
@@ -79,8 +93,10 @@ def train(config):
 
     # Create model and send to device
     model = LSTMModel(dataset.dataset.shape[-1],
-                      config.hidden_dim,
-                      dataset.labels.unique().shape[-1])
+                      config.lstm_hidden_dim,
+                      config.fc_hidden_dim,
+                      dataset.labels.unique().shape[-1],
+                      dropout=config.dropout)
     logger.info(f"Model created: {str(model)}")
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -91,7 +107,7 @@ def train(config):
     model.to(device)
 
     # Create loss function
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.NLLLoss()
     loss_fn.to(device)
 
     # Create optimizer and learning rate scheduler
@@ -112,8 +128,13 @@ def train(config):
             input = pack_padded_sequence(trajectories, lengths, batch_first=True, enforce_sorted=False)
 
             optim.zero_grad()
-            output, _ = model(input, use_encoding=False)
-            loss = loss_fn(output, target)
+            output, (encoding, lengths) = model(input, use_encoding=config.use_encoding)
+            loss = 0.0
+            if config.use_encoding:
+                for h_t in encoding.transpose(0, 1):
+                    loss += loss_fn(h_t, target)
+            loss += loss_fn(output, target)
+            loss /= encoding.shape[1] + 1
             loss.backward()
             optim.step()
 
@@ -121,15 +142,17 @@ def train(config):
 
         model.eval()
 
-        val_loss, accuracy = run_evaluation(model, loss_fn, val_loader, device, use_encoding=False)
+        val_loss, accuracy, _ = run_evaluation(model, loss_fn, val_loader, device, use_encoding=config.use_encoding)
         schedule.step(val_loss)
         logger.info(f"Validation Loss: {val_loss.item()}; Accuracy {accuracy.item()} "
                     f"LR: {optim.param_groups[0]['lr']}")
 
-        save_checkpoint(config.save_path + f"_latest.pt", epoch, model, optim, np.array(losses), np.array(accs))
+        save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") + f"latest.pt",
+                        epoch, model, optim, np.array(losses), np.array(accs))
         if len(losses) < 1 or val_loss < min(losses):
             logger.info("Saving best model")
-            save_checkpoint(config.save_path + f"_best.pt", epoch, model, optim, np.array(losses), np.array(accs))
+            save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") + f"best.pt",
+                            epoch, model, optim, np.array(losses), np.array(accs))
         losses.append(val_loss.item())
         accs.append(accuracy.item())
 
@@ -137,13 +160,6 @@ def train(config):
 
 
 if __name__ == '__main__':
-    logger.setLevel(logging.INFO)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s] - %(message)s')
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="Location of config file ending with *.json. Specifying this will"
                                                    "overwrite all other arguments.")
@@ -154,7 +170,8 @@ if __name__ == '__main__':
     parser.add_argument("--max_epoch", type=int, help="The maximum number of epochs to train.")
     parser.add_argument("--lr", type=float, help="Starting learning rate.")
     parser.add_argument("--dropout", type=float, help="Dropout regularisation for the LSTM,.")
-    parser.add_argument("--hidden_dim", type=int, help="Dimensions of the LSTM hidden layer.")
+    parser.add_argument("--lstm_hidden_dim", type=int, help="Dimensions of the LSTM hidden layer.")
+    parser.add_argument("--fc_hidden_dim", type=int, help="Dimensions of the FC hidden layer.")
     parser.add_argument("--save_path", type=str, help="Save path for model checkpoints.")
 
     args = parser.parse_args()

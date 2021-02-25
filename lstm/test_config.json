@@ -1,0 +1,9 @@
+{
+  "dataset": "trajectory",
+  "shuffle": true,
+  "scenario": "frankenberg",
+  "model_path": "checkpoint/best.pt",
+  "lstm_hidden_dim": 100,
+  "fc_hidden_dim": 500,
+  "step": 0.1
+}

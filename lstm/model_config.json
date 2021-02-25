@@ -1,11 +1,13 @@
 {
   "dataset": "trajectory",
   "shuffle": true,
-  "batch_size": 1000,
-  "max_epoch": 1000,
-  "dropout": 0.5,
+  "batch_size": 10,
+  "max_epoch": 50,
+  "dropout": 0.2,
+  "use_encoding": true,
   "lr": 0.01,
-  "hidden_dim": 100,
+  "lstm_hidden_dim": 100,
+  "fc_hidden_dim": 500,
   "scenario": "frankenberg",
-  "save_path": "."
+  "save_path": "checkpoint/"
 }
