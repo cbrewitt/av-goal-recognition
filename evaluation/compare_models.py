@@ -4,9 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import evaluation.evaluate_models_from_features as eval_grit
 import precog.evaluate_results as eval_precog
-import lstm.evaluate_results as eval_lstm
+# import lstm.evaluate_results as eval_lstm
 from core.base import get_data_dir
 
 
@@ -36,7 +35,7 @@ def main():
             fraction_observed_grouped = unique_samples[['model_correct', 'fraction_observed']].groupby(
                 'fraction_observed')
             draw_line_with_sem(fraction_observed_grouped, ax,
-                               "model_correct", {"prior_baseline": "Prior", "trained_trees": "GRIT"}[model_name])
+                               "model_correct", {"prior_baseline": "GRIT-no-DT", "trained_trees": "GRIT"}[model_name])
 
         # Plot PRECOG
         precog_scenario = precog_results[scenario_name]
@@ -49,7 +48,7 @@ def main():
         ax.set_xticklabels([f"{v:.1f}" for v in np.linspace(0, 1, fraction_observed_grouped.ngroups)])
         ax.set_yticklabels([f"{v:.1f}" for v in np.linspace(0, 1, 11)])
         plt.xlabel('Fraction of trajectory observed')
-        plt.title('Accuracy ({})'.format(scenario_name))
+        plt.ylabel('Accuracy ({})'.format(scenario_name))
         plt.ylim([0, 1])
         fig.savefig(f"../images/{scenario_name}_accuracy.pdf")
         # plt.show()
@@ -60,7 +59,7 @@ def main():
             fraction_observed_grouped = unique_samples[['model_entropy', 'fraction_observed']].groupby(
                 'fraction_observed')
             draw_line_with_sem(fraction_observed_grouped, ax, "model_entropy",
-                               {"prior_baseline": "Prior", "trained_trees": "GRIT"}[model_name])
+                               {"prior_baseline": "GRIT-no-DT", "trained_trees": "GRIT"}[model_name])
 
         precog_scenario = precog_results[scenario_name]
         fraction_observed_grouped = precog_scenario[["entropy", "rounded_frac_before_goal"]] \
@@ -71,8 +70,8 @@ def main():
         ax.set_yticks(np.linspace(0, 1, 11))
         ax.set_xticklabels([f"{v:.1f}" for v in np.linspace(0, 1, fraction_observed_grouped.ngroups)])
         ax.set_yticklabels([f"{v:.1f}" for v in np.linspace(0, 1, 11)])
-        plt.xlabel('fraction of trajectory observed')
-        plt.title('Normalised Entropy ({})'.format(scenario_name))
+        plt.xlabel('Fraction of trajectory observed')
+        plt.ylabel('Normalised Entropy ({})'.format(scenario_name))
         plt.ylim([0, 1])
         fig.savefig(f"../images/{scenario_name}_entropy.pdf")
         # plt.show()
