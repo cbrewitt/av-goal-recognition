@@ -135,4 +135,4 @@ dmypy.json
 # project data folders
 data/
 images/
-dnn/
+lstm/

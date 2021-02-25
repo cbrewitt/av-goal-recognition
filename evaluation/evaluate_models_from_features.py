@@ -83,15 +83,16 @@ def main():
     print('\naverage min probability:')
     print(avg_min_prob)
 
+    plots = {}
     for scenario_name in scenario_names:
 
-        fig, ax = plt.subplots()
+        fig, ax_0 = plt.subplots()
         for model_name, model in models.items():
             unique_samples = predictions[scenario_name][model_name]
             fraction_observed_grouped = unique_samples[['model_correct', 'fraction_observed']].groupby('fraction_observed')
             accuracy = fraction_observed_grouped.mean()
             accuracy_sem = fraction_observed_grouped.std() / np.sqrt(fraction_observed_grouped.count())
-            accuracy.rename(columns={'model_correct': model_name}).plot(ax=ax)
+            accuracy.rename(columns={'model_correct': model_name}).plot(ax=ax_0)
             plt.fill_between(accuracy_sem.index, (accuracy + accuracy_sem).model_correct.to_numpy(),
                              (accuracy - accuracy_sem).model_correct.to_numpy(), alpha=0.2)
         plt.xlabel('fraction of trajectory observed')
@@ -99,19 +100,22 @@ def main():
         plt.ylim([0, 1])
         plt.show()
 
-        fig, ax = plt.subplots()
+        fig, ax_1 = plt.subplots()
         for model_name, model in models.items():
             unique_samples = predictions[scenario_name][model_name]
             fraction_observed_grouped = unique_samples[['model_entropy', 'fraction_observed']].groupby('fraction_observed')
             entropy_norm = fraction_observed_grouped.mean()
             entropy_norm_sem = fraction_observed_grouped.std() / np.sqrt(fraction_observed_grouped.count())
-            entropy_norm.rename(columns={'model_entropy': model_name}).plot(ax=ax)
+            entropy_norm.rename(columns={'model_entropy': model_name}).plot(ax=ax_1)
             plt.fill_between(entropy_norm_sem.index, (entropy_norm + entropy_norm_sem).model_entropy.to_numpy(),
                              (entropy_norm - entropy_norm_sem).model_entropy.to_numpy(), alpha=0.2)
         plt.xlabel('fraction of trajectory observed')
         plt.title('Normalised Entropy ({})'.format(scenario_name))
         plt.ylim([0, 1])
         plt.show()
+
+        plots[scenario] = (ax_0, ax_1)
+    return plots
 
 
 if __name__ == '__main__':
