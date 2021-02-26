@@ -9,7 +9,7 @@
   "lstm_hidden_dim": 100,
   "fc_hidden_dim": 500,
   "lstm_layers": 1,
-  "scenario": "heckstrasse",
+  "scenario": "round",
   "save_path": "checkpoint/",
   "save_latest": false
 }

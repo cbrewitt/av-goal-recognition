@@ -198,7 +198,7 @@ class IndEpisodeLoader(EpisodeLoader):
         num_frames = round(meta_info['frameRate'] * meta_info['duration']) + 1
 
         agents = {}
-        frames = [Frame(i) for i in range(num_frames_duration)]
+        frames = [Frame(i) for i in range(num_frames)]
 
         for track_meta in static_info:
             agent_meta = self._agent_meta_from_track_meta(track_meta)

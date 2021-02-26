@@ -46,11 +46,12 @@ class GRITTrajectoryDataset(GRITDataset):
                 if len(agent_goals) > 0:
                     final_goal_frame_idx = goal_frames[-1] - agent.initial_frame
                     trimmed_trajectory = agent.state_history[0:final_goal_frame_idx]
-                    trimmed_trajectory = torch.Tensor([[frame.x, frame.y, frame.heading]
-                                                       for frame in trimmed_trajectory])
-                    goals.append(agent_goals[-1])
-                    trimmed_trajectories.append(trimmed_trajectory)
-                    lengths.append(trimmed_trajectory.shape[0])
+                    if isinstance(trimmed_trajectory, list) and len(trimmed_trajectory) > 0:
+                        trimmed_trajectory = torch.Tensor([[frame.x, frame.y, frame.heading]
+                                                           for frame in trimmed_trajectory])
+                        goals.append(agent_goals[-1])
+                        trimmed_trajectories.append(trimmed_trajectory)
+                        lengths.append(trimmed_trajectory.shape[0])
         return trimmed_trajectories, goals, lengths
 
 
