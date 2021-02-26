@@ -6,6 +6,7 @@ import numpy as np
 import cv2 as cv
 import os
 import copy
+import matplotlib.pyplot as plt
 
 from shapely.geometry import LineString
 from core.base import get_data_dir
@@ -284,10 +285,28 @@ class InDMultiagentDatum:
         overhead_features, visualisation = InDMultiagentDatum.get_image_features(
             scenario, agent_pasts[:, -1, :], agent_yaws, agent_dims, cfg)
 
+        if scenario.config.name == "round":  # Account for cropping from left and top
+            shift = np.array([100 * scenario.config.background_px_to_meter,
+                              -100 * scenario.config.background_px_to_meter,
+                              0.0])
+            agent_pasts -= shift
+            agent_futures -= shift
+
         # Scale the trajectory to match the units of the images features
         vis_scale = cfg.downsample_factor / scenario.config.background_px_to_meter
         agent_pasts *= vis_scale
         agent_futures *= vis_scale
+
+        if False:
+            agent_futures[:, :, 1] *= -1
+            plt.imshow(visualisation, cmap='gray', vmin=0, vmax=255)
+            for a in agent_futures:
+                plt.plot(*a[:, :2].T,
+                         marker="d",
+                         zorder=2,
+                         alpha=0.4,
+                         color="r")
+            plt.show()
 
         true_goals = np.zeros(1 + len(agents_to_include))
         for i, agent_id in enumerate(agents_to_include):
