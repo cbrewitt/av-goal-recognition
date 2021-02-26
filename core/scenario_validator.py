@@ -24,7 +24,7 @@ def validate_scenario(scenario: Scenario):
 
 def debug_plot(start_lanelet, feature_extractor, scenario):
     reachable_lanelets = feature_extractor.routing_graph.reachableSet(
-        start_lanelet, 100.0, 0)
+        start_lanelet, 1000.0, 0)
     scenario.plot()
     LaneletHelpers.plot_path(reachable_lanelets)
     fig = plt.gcf()

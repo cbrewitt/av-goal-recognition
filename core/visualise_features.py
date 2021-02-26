@@ -37,7 +37,7 @@ def main():
                                                             scenario.config.goals)
         for goal_idx, route in reachable_goals.items():
             goal = scenario.config.goals[goal_idx]
-            features = feature_extractor.extract(agent_id, frames[:x+1], goal, route)
+            features = feature_extractor.extract(agent_id, frames[:x+1], goal, route, goal_idx)
             all_features[goal_idx][x] = features
             print('goal {}'.format(goal_idx))
             print(features)
