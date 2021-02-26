@@ -1,4 +1,5 @@
 import argparse
+from multiprocessing import Pool
 
 import pandas as pd
 
@@ -44,85 +45,85 @@ def get_goal_priors(training_set, goal_types, alpha=0):
     return goal_priors
 
 
-def prepare_dataset(scenario_name, samples_per_trajectory=10):
+def prepare_episode_dataset(params):
+    scenario_name, episode_idx = params
+    print('scenario {} episode {}'.format(scenario_name, episode_idx))
+    samples_per_trajectory = 10
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
-    episodes = [scenario.load_episode(0)]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
-    for episode_idx, episode in enumerate(episodes):
+    episode = scenario.load_episode(episode_idx)
 
-        samples_list = []
+    samples_list = []
 
-        print('episode {}/{}'.format(episode_idx, len(episodes) - 1))
+    goals = {}  # key: agent id, value: goal idx
+    trimmed_trajectories = {}
 
-        goals = {}  # key: agent id, value: goal idx
-        trimmed_trajectories = {}
+    # detect goal, and trim trajectory past the goal
+    goal_detector = GoalDetector(scenario.config.goals)
+    for agent_id, agent in episode.agents.items():
+        if agent.agent_type in ['car', 'truck_bus']:
+            agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
+            if len(agent_goals) > 0:
+                final_goal_frame_idx = goal_frames[-1] - agent.initial_frame
+                trimmed_trajectory = agent.state_history[0:final_goal_frame_idx]
+                goals[agent_id] = agent_goals[-1]
+                trimmed_trajectories[agent_id] = trimmed_trajectory
 
-        # detect goal, and trim trajectory past the goal
-        goal_detector = GoalDetector(scenario.config.goals)
-        for agent_id, agent in episode.agents.items():
-            if agent.agent_type in ['car', 'truck_bus']:
-                agent_goals, goal_frames = goal_detector.detect_goals(agent.state_history)
-                if len(agent_goals) > 0:
-                    final_goal_frame_idx = goal_frames[-1] - agent.initial_frame
-                    trimmed_trajectory = agent.state_history[0:final_goal_frame_idx]
-                    goals[agent_id] = agent_goals[-1]
-                    trimmed_trajectories[agent_id] = trimmed_trajectory
+    # get features and reachable goals
 
-        # get features and reachable goals
+    for agent_idx, (agent_id, trajectory) in enumerate(trimmed_trajectories.items()):
 
-        for agent_idx, (agent_id, trajectory) in enumerate(trimmed_trajectories.items()):
+        print('agent_id {}/{}'.format(agent_idx, len(trimmed_trajectories) - 1))
+        # iterate through each sampled point in time for trajectory
 
-            print('agent_id {}/{}'.format(agent_idx, len(trimmed_trajectories) - 1))
-            # iterate through each sampled point in time for trajectory
+        reachable_goals_list = []
 
-            reachable_goals_list = []
+        # get reachable goals at each timestep
+        for idx in range(0, len(trajectory)):
+            goal_routes = feature_extractor.get_goal_routes(trajectory[idx], scenario.config.goals)
+            if len([r for r in goal_routes if r is not None]) > 1:
+                reachable_goals_list.append(goal_routes)
+            else:
+                break
 
-            # get reachable goals at each timestep
-            for idx in range(0, len(trajectory)):
-                goal_routes = feature_extractor.get_goal_routes(trajectory[idx], scenario.config.goals)
-                if len([r for r in goal_routes if r is not None]) > 1:
-                    reachable_goals_list.append(goal_routes)
-                else:
-                    break
+        # iterate through "samples_per_trajectory" points
+        true_goal_idx = goals[agent_id]
+        true_goal_types = scenario.config.goal_types[true_goal_idx]
+        if (len(reachable_goals_list) > samples_per_trajectory
+                and reachable_goals_list[0][true_goal_idx] is not None):
 
-            # iterate through "samples_per_trajectory" points
-            true_goal_idx = goals[agent_id]
-            true_goal_types = scenario.config.goal_types[true_goal_idx]
-            if (len(reachable_goals_list) > samples_per_trajectory
-                    and reachable_goals_list[0][true_goal_idx] is not None):
+            # get true goal
+            true_goal_loc = scenario.config.goals[true_goal_idx]
+            true_goal_route = reachable_goals_list[0][true_goal_idx]
+            true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route,
+                                                         true_goal_types)
 
-                # get true goal
-                true_goal_loc = scenario.config.goals[true_goal_idx]
-                true_goal_route = reachable_goals_list[0][true_goal_idx]
-                true_goal_type = feature_extractor.goal_type(trajectory[0], true_goal_loc, true_goal_route,
-                                                             true_goal_types)
+            step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
+            max_idx = step_size * samples_per_trajectory
+            for idx in range(0, max_idx + 1, step_size):
+                reachable_goals = reachable_goals_list[idx]
+                state = trajectory[idx]
+                frames = episode.frames[trajectory[0].frame_id:state.frame_id + 1]
 
-                step_size = (len(reachable_goals_list) - 1) // samples_per_trajectory
-                max_idx = step_size * samples_per_trajectory
-                for idx in range(0, max_idx + 1, step_size):
-                    reachable_goals = reachable_goals_list[idx]
-                    state = trajectory[idx]
-                    frames = episode.frames[trajectory[0].frame_id:state.frame_id + 1]
+                # iterate through each goal for that point in time
+                for goal_idx, route in enumerate(reachable_goals):
+                    if route is not None:
+                        goal = scenario.config.goals[goal_idx]
 
-                    # iterate through each goal for that point in time
-                    for goal_idx, route in enumerate(reachable_goals):
-                        if route is not None:
-                            goal = scenario.config.goals[goal_idx]
+                        features = feature_extractor.extract(agent_id, frames, goal, route, goal_idx)
 
-                            features = feature_extractor.extract(agent_id, frames, goal, route, goal_idx)
+                        sample = features.copy()
+                        sample['agent_id'] = agent_id
+                        sample['possible_goal'] = goal_idx
+                        sample['true_goal'] = true_goal_idx
+                        sample['true_goal_type'] = true_goal_type
+                        sample['frame_id'] = state.frame_id
+                        sample['initial_frame_id'] = trajectory[0].frame_id
+                        sample['fraction_observed'] = idx / max_idx
+                        samples_list.append(sample)
 
-                            sample = features.copy()
-                            sample['agent_id'] = agent_id
-                            sample['possible_goal'] = goal_idx
-                            sample['true_goal'] = true_goal_idx
-                            sample['true_goal_type'] = true_goal_type
-                            sample['frame_id'] = state.frame_id
-                            sample['initial_frame_id'] = trajectory[0].frame_id
-                            sample['fraction_observed'] = idx / max_idx
-                            samples_list.append(sample)
-
-        samples = pd.DataFrame(data=samples_list)
-        samples.to_csv(get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx), index=False)
+    samples = pd.DataFrame(data=samples_list)
+    samples.to_csv(get_data_dir() + '{}_e{}.csv'.format(scenario_name, episode_idx), index=False)
 
 
 def main():
@@ -135,9 +136,14 @@ def main():
     else:
         scenarios = [args.scenario]
 
+    params_list = []
     for scenario_name in scenarios:
-        print('Processing dataset for scenario: ' + scenario_name)
-        prepare_dataset(scenario_name)
+        scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
+        for episode_idx in range(len(scenario.config.episodes)):
+            params_list.append((scenario_name, episode_idx))
+
+    with Pool(8) as p:
+        p.map(prepare_episode_dataset, params_list)
 
 
 if __name__ == '__main__':
