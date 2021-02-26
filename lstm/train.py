@@ -108,6 +108,7 @@ def train(config):
         device = torch.device("cpu")
     if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
+    logger.info(f"Training on {device} (CUDA: {torch.cuda.device_count()}).")
     model.to(device)
 
     # Create loss function
