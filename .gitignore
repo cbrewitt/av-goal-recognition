@@ -137,3 +137,4 @@ data/
 images/
 lstm/grid_search/
 lstm/datasets/
+lstm/checkpoint/
