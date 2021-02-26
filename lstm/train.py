@@ -3,18 +3,20 @@ import argparse
 import logging
 import os
 import numpy as np
+import sys
 
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
+from core.base import get_base_dir
 from lstm.dataset_base import GRITDataset
 from lstm.model import LSTMModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
+ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.INFO)
 formatter = logging.Formatter('[%(asctime)s][%(name)s][%(levelname)s] - %(message)s')
 ch.setFormatter(formatter)
@@ -59,9 +61,9 @@ def run_evaluation(model, loss_fn, data_loader, device, use_encoding=False):
 
 
 def load_save_dataset(config, split_type="train"):
-    dataset_path = f"datasets/{config.scenario}_{config.dataset}_{split_type}.pt"
+    dataset_path = get_base_dir() + f"/lstm/datasets/{config.scenario}_{config.dataset}_{split_type}.pt"
     if not os.path.exists(dataset_path):
-        from dataset import DATASET_MAP
+        from lstm.dataset import DATASET_MAP
         dataset_cls = DATASET_MAP[config.dataset]
         dataset = dataset_cls(config.scenario, split_type)
         torch.save({"dataset": dataset.dataset,
@@ -87,6 +89,7 @@ def train(config):
     # Process and save/load the datasets
     dataset = load_save_dataset(config, "train")
     data_loader = DataLoader(dataset, shuffle=config.shuffle, batch_size=min(config.batch_size, len(dataset)))
+    logger.info(f"Datset loaded: {str(dataset)}")
 
     val_dataset = load_save_dataset(config, "valid")
     val_loader = DataLoader(val_dataset, shuffle=True, batch_size=len(val_dataset))
@@ -96,6 +99,7 @@ def train(config):
                       config.lstm_hidden_dim,
                       config.fc_hidden_dim,
                       dataset.labels.unique().shape[-1],
+                      num_layers=config.lstm_layers,
                       dropout=config.dropout)
     logger.info(f"Model created: {str(model)}")
     if torch.cuda.is_available():
@@ -112,7 +116,7 @@ def train(config):
 
     # Create optimizer and learning rate scheduler
     optim = torch.optim.Adam(model.parameters(), lr=config.lr)
-    schedule = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.9)
+    schedule = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, factor=0.5)
 
     losses = []
     accs = []
@@ -133,8 +137,8 @@ def train(config):
             if config.use_encoding:
                 for h_t in encoding.transpose(0, 1):
                     loss += loss_fn(h_t, target)
-            loss += loss_fn(output, target)
-            loss /= encoding.shape[1] + 1
+            loss += loss_fn(output, target) + 1
+            loss /= encoding.shape[1]
             loss.backward()
             optim.step()
 
@@ -147,11 +151,14 @@ def train(config):
         logger.info(f"Validation Loss: {val_loss.item()}; Accuracy {accuracy.item()} "
                     f"LR: {optim.param_groups[0]['lr']}")
 
-        save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") + f"latest.pt",
-                        epoch, model, optim, np.array(losses), np.array(accs))
+        if config.save_latest:
+            save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") +
+                            f"{config.scenario}_{config.dataset}_latest.pt",
+                            epoch, model, optim, np.array(losses), np.array(accs))
         if len(losses) < 1 or val_loss < min(losses):
             logger.info("Saving best model")
-            save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") + f"best.pt",
+            save_checkpoint(config.save_path + ("_" if config.save_path[-1] != "/" else "") +
+                            f"{config.scenario}_{config.dataset}_best.pt",
                             epoch, model, optim, np.array(losses), np.array(accs))
         losses.append(val_loss.item())
         accs.append(accuracy.item())

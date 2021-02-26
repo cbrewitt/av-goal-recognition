@@ -68,16 +68,14 @@ class GRITFeaturesDataset(GRITDataset):
         # self.timing_info = dataset[["agent_id", "goal_type"] + timing_keys]
         dataset = dataset.drop(timing_keys, axis=1)
 
-        label_keys = ["true_goal"]  # , "true_goal_type"]
-        # labels = pd.get_dummies(dataset[label_keys], columns=label_keys)
-        labels = dataset[label_keys]
+        labels = dataset["true_goal"]
         dataset = dataset.drop(["true_goal", "true_goal_type"], axis=1)
 
         dataset["in_correct_lane"] = dataset["in_correct_lane"].astype(int)
-        group_keys = ["agent_id", "goal_type", "possible_goal", "in_correct_lane"]
+        group_keys = ["agent_id", "possible_goal"]
         groups = dataset.groupby(group_keys).groups
-        dataset = pd.get_dummies(dataset, columns=["goal_type", "possible_goal"])
-        dataset = dataset.drop(["agent_id"], axis=1)
+        dataset = pd.get_dummies(dataset, columns=["possible_goal"])
+        dataset = dataset.drop(["agent_id", "goal_type"], axis=1)
 
         sequences = []
         goals = []
@@ -87,11 +85,13 @@ class GRITFeaturesDataset(GRITDataset):
                 for i in range(len(indices) // 11):
                     idxs = indices[11 * i:11 * i + 11]
                     sequences.append(torch.Tensor(dataset.loc[idxs].values))
-                    goals.append(labels.loc[indices].values[0][0])
+                    most_frequent = labels.loc[idxs].value_counts()
+                    goals.append(most_frequent.idxmax())
                     lengths.append(len(idxs))
             elif len(indices) <= 11:
                 sequences.append(torch.Tensor(dataset.loc[indices].values))
-                goals.append(labels.loc[indices].values[0][0])
+                most_frequent = labels.loc[indices].value_counts()
+                goals.append(most_frequent.idxmax())
                 lengths.append(len(indices))
 
         sequences = pad_sequence(sequences, batch_first=True, padding_value=0.0)

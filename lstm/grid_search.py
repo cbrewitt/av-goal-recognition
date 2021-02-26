@@ -7,12 +7,14 @@ import copy
 import torch
 import pandas as pd
 import sys
-from lstm.train import train
+from lstm.train import train, logger
 
 grid_search_params = {
-    "hidden_dim": np.logspace(1, 15, 10, base=2, dtype=int),
-    "lr": np.logspace(-5, -1, 10),
-    "dropout": np.arange(0.0, 1.0, 0.1)
+    "lstm_hidden_dim": np.logspace(4, 13, 5, base=2, dtype=int),
+    "fc_hidden_dim": np.linspace(100, 1000, 5, dtype=int),
+    "lstm_layers": [1, 3, 5],
+    "lr": [0.01, 0.005, 0.001],
+    "dropout": np.arange(0.1, 1.0, 0.25)
 }
 
 
@@ -32,16 +34,13 @@ def product_dict(**kwargs):
         yield dict(zip(keys, instance))
 
 
-logger = logging.getLogger()
-setup_logging(logger)
-
 if __name__ == '__main__':
     type = sys.argv[1]  # search/best
     dataset = sys.argv[2]  # features/trajectory
     scenario = sys.argv[3]  # heckstrasse/bendplatz/frankenberg/round
     i = int(sys.argv[4])
 
-    path_string = "grid_search/{0}_{1}_{2}_{3}_{4:.1f}"
+    path_string = "grid_search/{0}_{1}_{2}_{3}_{4}_{5}_{6:.2f}"
 
     if type == "search":
         if not os.path.exists("grid_search"):
@@ -49,9 +48,15 @@ if __name__ == '__main__':
 
         grid_params = list(product_dict(**grid_search_params))
         params = grid_params[i]
-        save_path = path_string.format(scenario, dataset, params['hidden_dim'], params['lr'], params['dropout'])
-        params.update({"dataset": dataset, "shuffle": True, "batch_size": 100, "max_epoch": 2000, "scenario": scenario,
-                       "save_path": save_path})
+        save_path = path_string.format(
+            scenario, dataset,
+            params['lstm_hidden_dim'],
+            params["fc_hidden_dim"],
+            params["lstm_layers"],
+            params['lr'],
+            params['dropout'])
+        params.update({"dataset": dataset, "shuffle": True, "batch_size": 10, "max_epoch": 100, "scenario": scenario,
+                       "save_path": save_path, "save_latest": False, "use_encoding": True})
         params = argparse.Namespace(**params)
         train(params)
 

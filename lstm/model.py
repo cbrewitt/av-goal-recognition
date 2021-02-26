@@ -13,11 +13,11 @@ class LSTMModel(nn.Module):
                                 nn.Dropout(dropout),
                                 nn.Linear(fc_hidden_shape, out_shape),
                                 nn.Dropout(dropout),
-                                nn.LogSoftmax())
+                                nn.LogSoftmax(dim=-1))
 
         for layer in self.fc:
             if isinstance(layer, nn.Linear):
-                nn.init.xavier_normal(layer.weight)
+                nn.init.xavier_normal_(layer.weight)
                 nn.init.constant_(layer.bias, 0.0)
 
     def forward(self, x, use_encoding=False):

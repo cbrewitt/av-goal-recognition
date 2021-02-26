@@ -2,6 +2,7 @@ import argparse
 import json
 
 import torch
+from core.base import get_base_dir
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -23,11 +24,13 @@ def main(config):
     test_data = [_ for _ in test_loader][0]
     logger.info(f"Running testing")
 
-    model_dict = torch.load(config.model_path)
+    model_dict = torch.load(get_base_dir() + "/lstm/" + config.model_path)
     model = LSTMModel(test_dataset.dataset.shape[-1],
                       config.lstm_hidden_dim,
                       config.fc_hidden_dim,
-                      test_dataset.labels.unique().shape[-1])
+                      test_dataset.labels.unique().shape[-1],
+                      num_layers=config.lstm_layers,
+                      dropout=0.0)
     model.load_state_dict(model_dict["model_state_dict"])
 
     trajectories = test_data[0]
@@ -42,16 +45,25 @@ def main(config):
     matches = (encoding.argmax(axis=-1) == target.unsqueeze(-1)).to(float)
     mask = (torch.arange(encoding.shape[1])[None, :] >= lengths[:, None])
     matches = matches.masked_fill(mask, 0)
+    goal_probs = torch.exp(encoding)
 
     step = config.step
-    step_mask = torch.arange(encoding.shape[1])[None, :] % (lengths[:, None] * step - 1).ceil() == 0
-    step_mask = step_mask.masked_fill(mask, 0)
-    steps = step_mask.to(float).sum(1)
     count = int(1 / step + 1)
-    assert (steps == count).all()
-    accuracy = matches.masked_select(step_mask).view((matches.shape[0], count))
+    if encoding.shape[1] > count:
+        step_mask = torch.arange(encoding.shape[1])[None, :] % (lengths[:, None] * step - 1).ceil() == 0
+        step_mask = step_mask.masked_fill(mask, 0)
+        steps = step_mask.to(float).cumsum(1)
+        mask = steps > count
+        step_mask[mask] = False
+        steps = step_mask.to(float).sum(1)
+        assert (steps == count).all()
+        corrects = matches.masked_select(step_mask).view((matches.shape[0], count))
+        goal_probs = goal_probs.masked_select(step_mask.unsqueeze(-1)).view(
+            (matches.shape[0], count, goal_probs.shape[-1]))
+    else:
+        corrects = (encoding.argmax(axis=-1) == target.unsqueeze(-1)).to(float)
 
-    return accuracy.detach().numpy()
+    return corrects.detach().numpy(), goal_probs.detach().numpy()
 
 
 if __name__ == '__main__':
