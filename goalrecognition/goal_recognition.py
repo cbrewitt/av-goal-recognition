@@ -11,7 +11,8 @@ class BayesianGoalRecogniser:
 
     def __init__(self, goal_priors, scenario):
         self.goal_priors = goal_priors
-        self.feature_extractor = FeatureExtractor(scenario.lanelet_map)
+        self.feature_extractor = FeatureExtractor(scenario.lanelet_map,
+                                                  scenario.config.goal_types)
         self.scenario = scenario
 
     def goal_likelihood(self, goal_idx, frames, route, agent_id):

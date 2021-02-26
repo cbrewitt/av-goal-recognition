@@ -46,7 +46,7 @@ def get_goal_priors(training_set, goal_types, alpha=0):
 
 def prepare_dataset(scenario_name, samples_per_trajectory=10):
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
-    episodes = scenario.load_episodes()
+    episodes = [scenario.load_episode(0)]
     feature_extractor = FeatureExtractor(scenario.lanelet_map)
     for episode_idx, episode in enumerate(episodes):
 
@@ -109,7 +109,7 @@ def prepare_dataset(scenario_name, samples_per_trajectory=10):
                         if route is not None:
                             goal = scenario.config.goals[goal_idx]
 
-                            features = feature_extractor.extract(agent_id, frames, goal, route)
+                            features = feature_extractor.extract(agent_id, frames, goal, route, goal_idx)
 
                             sample = features.copy()
                             sample['agent_id'] = agent_id

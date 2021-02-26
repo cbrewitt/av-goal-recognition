@@ -17,13 +17,14 @@ class FeatureExtractor:
                      'vehicle_in_front_speed': 'scalar',
                      'oncoming_vehicle_dist': 'scalar'}
 
-    def __init__(self, lanelet_map):
+    def __init__(self, lanelet_map, goal_types=None):
         self.lanelet_map = lanelet_map
         self.traffic_rules = lanelet2.traffic_rules.create(
             lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
         self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, self.traffic_rules)
+        self.goal_types = goal_types
 
-    def extract(self, agent_id, frames, goal, route, goal_types=None):
+    def extract(self, agent_id, frames, goal, route, goal_idx=None):
         """Extracts a dict of features
         """
 
@@ -42,6 +43,8 @@ class FeatureExtractor:
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
+
+        goal_types = None if goal_idx is None or self.goal_types is None else self.goal_types[goal_idx]
         goal_type = self.goal_type(initial_state, goal, route, goal_types)
 
         vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)

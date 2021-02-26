@@ -18,7 +18,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
 
     def goal_likelihood(self, goal_idx, frames, route, agent_id):
         goal_loc = self.scenario.config.goals[goal_idx]
-        features = self.feature_extractor.extract(agent_id, frames, goal_loc, route)
+        features = self.feature_extractor.extract(agent_id, frames, goal_loc, route, goal_idx)
         likelihood = self.decision_trees[goal_idx][features['goal_type']].traverse(features)
         return likelihood
 
@@ -49,7 +49,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
         if training_set is None:
             training_set = get_dataset(scenario_name, subset='train')
         goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
-
+        import pdb; pdb.set_trace()
         for goal_idx in goal_priors.true_goal.unique():
             decision_trees[goal_idx] = {}
             goal_types = goal_priors.loc[goal_priors.true_goal == goal_idx].true_goal_type.unique()
