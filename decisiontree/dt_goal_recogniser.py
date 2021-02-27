@@ -49,7 +49,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
         if training_set is None:
             training_set = get_dataset(scenario_name, subset='train')
         goal_priors = get_goal_priors(training_set, scenario.config.goal_types, alpha=alpha)
-        import pdb; pdb.set_trace()
+
         for goal_idx in goal_priors.true_goal.unique():
             decision_trees[goal_idx] = {}
             goal_types = goal_priors.loc[goal_priors.true_goal == goal_idx].true_goal_type.unique()

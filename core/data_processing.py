@@ -50,7 +50,7 @@ def prepare_episode_dataset(params):
     print('scenario {} episode {}'.format(scenario_name, episode_idx))
     samples_per_trajectory = 10
     scenario = Scenario.load(get_scenario_config_dir() + '{}.json'.format(scenario_name))
-    feature_extractor = FeatureExtractor(scenario.lanelet_map)
+    feature_extractor = FeatureExtractor(scenario.lanelet_map, scenario.config.goal_types)
     episode = scenario.load_episode(episode_idx)
 
     samples_list = []
@@ -142,7 +142,7 @@ def main():
         for episode_idx in range(len(scenario.config.episodes)):
             params_list.append((scenario_name, episode_idx))
 
-    with Pool(8) as p:
+    with Pool(4) as p:
         p.map(prepare_episode_dataset, params_list)
 
 
