@@ -17,13 +17,14 @@ class FeatureExtractor:
                      'vehicle_in_front_speed': 'scalar',
                      'oncoming_vehicle_dist': 'scalar'}
 
-    def __init__(self, lanelet_map):
+    def __init__(self, lanelet_map, goal_types=None):
         self.lanelet_map = lanelet_map
         self.traffic_rules = lanelet2.traffic_rules.create(
             lanelet2.traffic_rules.Locations.Germany, lanelet2.traffic_rules.Participants.Vehicle)
         self.routing_graph = lanelet2.routing.RoutingGraph(lanelet_map, self.traffic_rules)
+        self.goal_types = goal_types
 
-    def extract(self, agent_id, frames, goal, route):
+    def extract(self, agent_id, frames, goal, route, goal_idx=None):
         """Extracts a dict of features
         """
 
@@ -42,7 +43,9 @@ class FeatureExtractor:
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
-        goal_type = self.goal_type(initial_state, goal, route)
+
+        goal_types = None if goal_idx is None or self.goal_types is None else self.goal_types[goal_idx]
+        goal_type = self.goal_type(initial_state, goal, route, goal_types)
 
         vehicle_in_front_id, vehicle_in_front_dist = self.vehicle_in_front(current_state, route, current_frame)
         if vehicle_in_front_id is None:
@@ -356,8 +359,10 @@ class FeatureExtractor:
         # check if the midline of a lanelet crosses a road marking
         for lanelet in self.lanelet_map.laneletLayer:
             if path_lanelet != lanelet and self.traffic_rules.canPass(lanelet):
-                left_virtual = lanelet.leftBound.attributes['type'] == 'virtual'
-                right_virtual = lanelet.rightBound.attributes['type'] == 'virtual'
+                left_virtual = ('type' in lanelet.leftBound.attributes
+                                and lanelet.leftBound.attributes['type'] == 'virtual')
+                right_virtual = ('type' in lanelet.rightBound.attributes
+                                 and lanelet.rightBound.attributes['type'] == 'virtual')
                 path_centerline = geometry.to2D(path_lanelet.centerline)
                 right_bound = geometry.to2D(lanelet.rightBound)
                 left_bound = geometry.to2D(lanelet.leftBound)
@@ -377,7 +382,10 @@ class FeatureExtractor:
         else:
             return None, None
 
-    def goal_type(self, state, goal, route):
+    def goal_type(self, state, goal, route, goal_types=None):
+        if goal_types is not None and len(goal_types) == 1:
+            return goal_types[0]
+
         # get the goal type, based on the route
         goal_point = BasicPoint2d(*goal)
         path = route.shortestPath()
