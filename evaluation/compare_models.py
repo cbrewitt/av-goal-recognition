@@ -22,7 +22,7 @@ def draw_line_with_sem(group, ax, key, value):
 
 
 def main():
-    scenarios = ["heckstrasse", "bendplatz", "frankenberg"]
+    scenarios = ["heckstrasse", "bendplatz", "frankenberg", "round"]
     lstm_datasets = ["trajectory"]
 
     sns.set_style("darkgrid")
