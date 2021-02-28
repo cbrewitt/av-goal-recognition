@@ -17,7 +17,7 @@ if args.slice is None:
 else:
     slice_idx, num_slices = [int(x) for x in args.slice.split('/')]
 
-scenarios = ['heckstrasse', 'bendplatz', 'frankenberg']
+scenarios = ['round']
 criterions = ['entropy']
 ccp_alpha_grid = np.logspace(-3, -2, 20)
 alphas = np.logspace(-4, 0, 30)
