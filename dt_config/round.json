@@ -1,1 +1,1 @@
-{"ccp_alpha": 0.002976351441631319, "criterion": "entropy", "max_depth": 7}
+{"ccp_alpha": 0.001, "criterion": "entropy", "max_depth": 7}
