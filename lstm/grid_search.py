@@ -63,19 +63,21 @@ if __name__ == '__main__':
     elif type == "best":
         results = []
         for params in product_dict(**grid_search_params):
-            save_path = path_string.format(scenario, dataset, params['hidden_dim'], params['lr'], params['dropout'])
+            save_path = path_string.format(
+                scenario, dataset,
+                params['lstm_hidden_dim'],
+                params["fc_hidden_dim"],
+                params["lstm_layers"],
+                params['lr'],
+                params['dropout']) + f"_{scenario}_{dataset}"
             try:
                 best = torch.load(save_path + "_best.pt")
-                latest = torch.load(save_path + "_latest.pt")
             except IOError as e:
                 logger.exception(str(e), exc_info=e)
                 continue
             result = copy.copy(params)
             result.update({"best_loss": best["losses"].min(), "best_acc": best["accs"].max(),
-                           "best_epoch": best["epoch"], "avg_loss": latest["losses"].mean(),
-                           "loss_sem": latest["losses"].std() / np.sqrt(len(latest["losses"])),
-                           "avg_acc": latest["accs"].mean(),
-                           "accs_sem": latest["accs"].std() / np.sqrt(len(latest["accs"]))},
+                           "best_epoch": best["epoch"]},
                           )
             results.append(result)
         results = pd.DataFrame(results)
