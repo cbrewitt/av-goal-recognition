@@ -14,7 +14,7 @@ def main(cfg, get_dataframe=False):
     results_directory = cfg["results_dir"]
 
     if "scenario" not in cfg["goal_detection"] or cfg["goal_detection"]["scenario"] is None:
-        scenarios = ["heckstrasse", "bendplatz", "frankenberg"]
+        scenarios = ["heckstrasse", "bendplatz", "frankenberg", "round"]
     elif isinstance(cfg["goal_detection"]["scenario"], str):
         scenarios = [cfg["goal_detection"]["scenario"]]
     else:

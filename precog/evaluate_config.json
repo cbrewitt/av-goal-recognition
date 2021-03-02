@@ -3,14 +3,11 @@
     "scenario": [
       "heckstrasse",
       "bendplatz",
-      "frankenberg"
+      "frankenberg",
+      "round"
     ],
     "traj_frequency": 10,
     "resample_traj_frequency": 25,
-    "K": 20,
-    "plot_rollout": true,
-    "rollouts": 2,
-    "threshold": 1.5,
     "plot_step": 0.1
   },
   "results_dir": "/home/balint/Documents/precog/output/esp_infer_results/2021-02/"

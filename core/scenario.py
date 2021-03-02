@@ -203,9 +203,9 @@ class IndEpisodeLoader(EpisodeLoader):
         num_frames = round(meta_info['frameRate'] * meta_info['duration']) + 1
 
         agents = {}
-        frames = [Frame(i) for i in range(num_frames_dur)]
+        frames = [Frame(i) for i in range(num_frames)]
 
-        for track_meta in static_info:
+        for idx, track_meta in enumerate(static_info):
             agent_meta = self._agent_meta_from_track_meta(track_meta)
             state_history = []
             track = tracks[agent_meta.agent_id]
@@ -280,7 +280,6 @@ class Scenario:
             print('Loading episode {}/{}'.format(idx+1, len(self.config.episodes)))
             episode = loader.load(EpisodeConfig(c))
             episodes.append(episode)
-            # break
         return episodes
 
     def load_episode(self, episode_id):

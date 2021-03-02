@@ -1,6 +1,7 @@
 import json
 import pickle
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -21,9 +22,15 @@ def draw_line_with_sem(group, ax, key, value):
 
 
 def main():
-    scenarios = ["heckstrasse", "bendplatz", "frankenberg"]
+    scenarios = ["round", "heckstrasse", "bendplatz", "frankenberg"]
 
     sns.set_style("darkgrid")
+    font = {'family': 'sans-serif',
+            'weight': 'normal',
+            'size': 16}
+
+    matplotlib.rc('font', **font)
+
     precog_results = eval_precog.main(json.load(open("../precog/evaluate_config.json")), get_dataframe=True)
     models, predictions, unique_samples, accuracy = pickle.load(open(get_data_dir() + "grit_eval_data.p", "rb"))
     for scenario_name in scenarios:

@@ -331,6 +331,7 @@ class InDMultiagentDatum:
 
         features_list = InDMultiagentDatum.crop_resize_features(features_list, scenario, cfg)
         image = np.stack(features_list, axis=-1)
+        image = image[:181, :]
 
         visualisation = collapse(image).copy()
         if cfg.draw_map:
