@@ -14,7 +14,7 @@ def main(cfg, get_dataframe=False):
     results_directory = cfg["results_dir"]
 
     if "scenario" not in cfg["goal_detection"] or cfg["goal_detection"]["scenario"] is None:
-        scenarios = ["heckstrasse", "bendplatz", "frankenberg"]
+        scenarios = ["heckstrasse", "bendplatz", "frankenberg", "round"]
     elif isinstance(cfg["goal_detection"]["scenario"], str):
         scenarios = [cfg["goal_detection"]["scenario"]]
     else:
@@ -30,6 +30,7 @@ def main(cfg, get_dataframe=False):
         log.info(f"Summary for scenario {scenario}:")
         results = pd.read_csv(os.path.join(results_directory, f"ind_{scenario}/results.csv"))
         fracs = pd.read_csv(os.path.join(results_directory, f"ind_{scenario}/{scenario}_traj_fracs.csv"), index_col=0)
+        timings = pd.read_csv(os.path.join(results_directory, f"ind_{scenario}/timings.csv"), sep=",")
         results = pd.merge(results, fracs, on=["batch_id", "agent_id"], how="left")
         results["rounded_total_frac"] = (results["frac_total_observed"] / cfg["goal_detection"]["plot_step"]).astype(int) + 1
         results["rounded_window_frac"] = (results["frac_window_observed"] / cfg["goal_detection"]["plot_step"]).astype(int) + 1
@@ -57,7 +58,7 @@ def main(cfg, get_dataframe=False):
             sns.lineplot(data=results, x="rounded_frac_before_goal", y="adj_accuracy", ax=ax[0])
             sns.lineplot(data=results, x="rounded_frac_before_goal", y="entropy", ax=ax[1])
 
-        dataframes[scenario] = results
+        dataframes[scenario] = (results, timings)
         log.info("")
 
     if get_dataframe:

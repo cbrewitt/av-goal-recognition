@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import time
 
 from core.base import get_data_dir, get_scenario_config_dir
 from core.feature_extraction import FeatureExtractor
@@ -57,16 +58,22 @@ class BayesianGoalRecogniser:
         """
         dataset = dataset.copy()
         model_likelihoods = []
+        timings = []
 
         for index, row in dataset.iterrows():
             features = row[FeatureExtractor.feature_names]
             goal_type = row['goal_type']
             goal = row['possible_goal']
+
+            start = time.time()
             model_likelihood = self.goal_likelihood_from_features(features, goal_type, goal)
+            dur = time.time() - start
+            timings.append(dur)
 
             model_likelihoods.append(model_likelihood)
         dataset['model_likelihood'] = model_likelihoods
-        unique_samples = dataset[['episode', 'agent_id', 'frame_id', 'true_goal',
+        dataset["duration"] = timings
+        unique_samples = dataset[['episode', 'agent_id', 'frame_id', 'true_goal', "duration",
                                   'true_goal_type', 'fraction_observed']].drop_duplicates()
         model_predictions = []
         predicted_goal_types = []
@@ -76,6 +83,7 @@ class BayesianGoalRecogniser:
         model_entropys = []
         model_norm_entropys = []
         for index, row in unique_samples.iterrows():
+            start = time.time()
             indices = ((dataset.episode == row.episode)
                        & (dataset.agent_id == row.agent_id)
                        & (dataset.frame_id == row.frame_id))
@@ -102,6 +110,9 @@ class BayesianGoalRecogniser:
             model_probs.append(model_prob)
             model_entropys.append(goal_prob_entropy)
             model_norm_entropys.append(norm_entropy)
+
+            dur = time.time() - start
+            unique_samples.loc[index, "duration"] += dur
 
         unique_samples['model_prediction'] = model_predictions
         unique_samples['predicted_goal_type'] = predicted_goal_types

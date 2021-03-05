@@ -3,7 +3,8 @@
     "scenario": [
       "heckstrasse",
       "bendplatz",
-      "frankenberg"
+      "frankenberg",
+      "round"
     ],
     "traj_frequency": 10,
     "resample_traj_frequency": 25,

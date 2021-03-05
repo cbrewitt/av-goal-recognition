@@ -1,9 +1,11 @@
+import pickle
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
 
-from core.base import get_scenario_config_dir
+from core.base import get_scenario_config_dir, get_data_dir
 from core.data_processing import get_dataset
 from decisiontree.dt_goal_recogniser import TrainedDecisionTrees
 from goalrecognition.goal_recognition import PriorBaseline
@@ -18,7 +20,7 @@ def main():
     args = parser.parse_args()
 
     if args.scenario is None:
-        scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg']
+        scenario_names = ['heckstrasse', 'bendplatz', 'frankenberg', 'round']
     else:
         scenario_names = [args.scenario]
 
@@ -67,6 +69,9 @@ def main():
             print('{} cross entropy: {:.3f}'.format(model_name, cross_entropy))
 
         predictions[scenario_name] = dataset_predictions
+
+    pickle.dump((models, predictions, unique_samples, accuracy),
+                open(get_data_dir() + "grit_eval_data.p", "wb"))
 
     print('accuracy:')
     print(accuracies)

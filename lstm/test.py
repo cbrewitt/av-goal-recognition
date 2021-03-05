@@ -1,6 +1,6 @@
 import argparse
 import json
-
+import time
 import torch
 from core.base import get_base_dir
 from torch.nn.utils.rnn import pack_padded_sequence
@@ -33,6 +33,8 @@ def main(config):
                       dropout=0.0)
     model.load_state_dict(model_dict["model_state_dict"])
 
+    start = time.time()
+
     trajectories = test_data[0]
     target = test_data[1]
     lengths = test_data[2]
@@ -63,7 +65,9 @@ def main(config):
     else:
         corrects = (encoding.argmax(axis=-1) == target.unsqueeze(-1)).to(float)
 
-    return corrects.detach().numpy(), goal_probs.detach().numpy()
+    dur = time.time() - start
+
+    return corrects.detach().numpy(), goal_probs.detach().numpy(), dur
 
 
 if __name__ == '__main__':
