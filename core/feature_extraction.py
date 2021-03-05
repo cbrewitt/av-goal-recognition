@@ -16,6 +16,7 @@ class FeatureExtractor:
                      'vehicle_in_front_dist': 'scalar',
                      'vehicle_in_front_speed': 'scalar',
                      'oncoming_vehicle_dist': 'scalar'}
+                     #'lateral_position_in_lane': 'scalar'}
 
     def __init__(self, lanelet_map, goal_types=None):
         self.lanelet_map = lanelet_map
@@ -43,6 +44,7 @@ class FeatureExtractor:
         in_correct_lane = self.in_correct_lane(route)
         path_to_goal_length = self.path_to_goal_length(current_state, goal, route)
         angle_in_lane = self.angle_in_lane(current_state, current_lanelet)
+        #lateral_pos_in_lane = LaneletHelpers.dist_from_center(current_state.point, current_lanelet)
 
         goal_types = None if goal_idx is None or self.goal_types is None else self.goal_types[goal_idx]
         goal_type = self.goal_type(initial_state, goal, route, goal_types)
@@ -66,6 +68,7 @@ class FeatureExtractor:
                 'vehicle_in_front_speed': vehicle_in_front_speed,
                 'oncoming_vehicle_dist': oncoming_vehicle_dist,
                 'goal_type': goal_type}
+                #'lateral_pos_in_lane': lateral_pos_in_lane}
 
     @staticmethod
     def angle_in_lane(state: AgentState, lanelet):
