@@ -34,11 +34,9 @@ def main():
     scenarios = ["round", "heckstrasse", "bendplatz", "frankenberg"]
     lstm_datasets = ["trajectory"]
 
-    font = {'family': 'sans-serif',
-            'weight': 'normal',
-            'size': 16}
-
-    matplotlib.rc('font', **font)
+    matplotlib.rcParams["pdf.fonttype"] = 42
+    matplotlib.rcParams["ps.fonttype"] = 42
+    matplotlib.rcParams["font.size"] = 17
 
     sns.set_style("darkgrid")
     precog_results = eval_precog.main(json.load(open("../precog/evaluate_config.json")), get_dataframe=True)

@@ -58,10 +58,9 @@ for scenario_name in scenarios:
 timings_info = pd.DataFrame(timings_info)
 timings = pd.concat(timings_df, ignore_index=True)
 sns.set_style("darkgrid")
-font = {'family': 'sans-serif',
-        'weight': 'normal',
-        'size': 17}
-matplotlib.rc('font', **font)
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
+matplotlib.rcParams["font.size"] = 17
 
 # fig, ax = plt.subplots()
 # plt.yscale("log")
