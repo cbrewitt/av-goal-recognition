@@ -7,11 +7,15 @@ import matplotlib.pyplot as plt
 import skimage.io
 from matplotlib.widgets import Button, Slider
 from loguru import logger
+from IPython.display import Image, display
+
+from core.base import get_img_dir
+from decisiontree.dt_goal_recogniser import DecisionTreeGoalRecogniser
 
 
 class TrackVisualizer(object):
     def __init__(self, config, tracks, static_info, meta_info, fig=None,
-                 goal_recogniser=None, scenario=None, episode=None):
+                 goal_recogniser=None, scenario=None, episode=None, agent_id=None):
         self.config = config
         self.input_path = config["input_path"]
         self.recording_name = config["recording_name"]
@@ -22,6 +26,7 @@ class TrackVisualizer(object):
         self.goal_recogniser = goal_recogniser
         self.scenario = scenario
         self.episode = episode
+        self.agent_id = agent_id
 
         # Get configurations
         if self.scale_down_factor % 2 != 0:
@@ -196,6 +201,7 @@ class TrackVisualizer(object):
         self.fig.canvas.draw_idle()
 
     def update_figure(self):
+        saved_tree = False
         # Plot the bounding boxes, their text annotations and direction arrow
         plotted_objects = []
         for track_ind in self.ids_for_frame[self.current_frame]:
@@ -260,7 +266,7 @@ class TrackVisualizer(object):
                             **self.track_style_future)
                         plotted_objects.append(plotted_centroids_future)
 
-            if self.config["showTextAnnotation"]:
+            if self.config["showTextAnnotation"] and self.agent_id is None or self.agent_id == track_id:
                 # Plot the text annotation
                 annotation_text = "ID{}".format(track_id)
                 if self.config["showClassLabel"]:
@@ -293,6 +299,16 @@ class TrackVisualizer(object):
                     for goal_idx, prob in enumerate(goal_probabilities):
                         if prob > 0:
                             annotation_text += '\nG{}: {:.3f}'.format(goal_idx, prob)
+
+                    if self.agent_id is not None:
+                        assert isinstance(self.goal_recogniser, DecisionTreeGoalRecogniser)
+                        goal_idx = 0
+                        goal_type = 'turn-right'
+                        pydot_tree = self.goal_recogniser.decision_trees[goal_idx][goal_type].pydot_tree()
+                        pydot_tree.write_png(get_img_dir() + '/video_tree/{}.png'.format(
+                            self.current_frame, self.agent_id, goal_idx, goal_type))
+                        saved_tree = True
+
                 # Differentiate between using an empty background image and using the virtual background
                 target_location = (
                     center_point[0],
@@ -308,6 +324,9 @@ class TrackVisualizer(object):
         self.fig.canvas.mpl_connect('pick_event', self.on_click)
         # Save the plotted objects in a list
         self.plotted_objects = plotted_objects
+
+        if saved_tree:
+            plt.savefig(get_img_dir() + '/video_road/{}.png'.format(self.current_frame))
 
     def on_click(self, event):
         artist = event.artist

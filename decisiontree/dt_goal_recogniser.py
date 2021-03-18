@@ -19,6 +19,7 @@ class DecisionTreeGoalRecogniser(BayesianGoalRecogniser):
     def goal_likelihood(self, goal_idx, frames, route, agent_id):
         goal_loc = self.scenario.config.goals[goal_idx]
         features = self.feature_extractor.extract(agent_id, frames, goal_loc, route, goal_idx)
+        self.decision_trees[goal_idx][features['goal_type']].reset_reached()
         likelihood = self.decision_trees[goal_idx][features['goal_type']].traverse(features)
         return likelihood
 

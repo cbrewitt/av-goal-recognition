@@ -11,16 +11,26 @@ class Node:
         self.value = value
         self.decision = decision
         self.counts = [None, None]
+        self.reached = False
 
     def traverse(self, features):
+        self.reached = True
         current_node = self
         while current_node.decision is not None:
             current_node = current_node.decision.select_child(features)
+            current_node.reached = True
         return current_node.value
+
+    def reset_reached(self):
+        self.reached = False
+        if self.decision is not None:
+            self.decision.true_child.reset_reached()
+            self.decision.false_child.reset_reached()
 
     def __str__(self):
         text = ''
-        text += '{0:.3f} {1}\n'.format(self.value, self.counts)
+        #text += '{0:.3f} {1}\n'.format(self.value, self.counts)
+        text += '{0:.3f}\n'.format(self.value)
         if self.decision is not None:
             text += str(self.decision)
         return text
@@ -86,7 +96,10 @@ class Node:
         graph = pydot.Dot(graph_type='digraph')
 
         def recurse(graph, root, idx='R'):
-            node = pydot.Node(idx, label=str(root))
+            if root.reached:
+                node = pydot.Node(idx, label=str(root),  style='filled', color="lightblue")
+            else:
+                node = pydot.Node(idx, label=str(root))
             graph.add_node(node)
             if root.decision is not None:
                 true_child = recurse(graph, root.decision.true_child, idx + 'T')

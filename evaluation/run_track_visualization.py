@@ -33,6 +33,9 @@ def create_args():
     config_specification.add_argument('--goal_recogniser', default=None,
                                       help="Choose goal recognition method.", type=str)
 
+    config_specification.add_argument('--agent_id', default=None,
+                                      help="Only show details for this agent", type=int)
+
     # --- Settings ---
     config_specification.add_argument('--scale_down_factor', default=12,
                                       help="Factor by which the tracks are scaled down to match a scaled down image.",
@@ -123,6 +126,6 @@ if __name__ == '__main__':
         background_image_path = None
     config["background_image_path"] = background_image_path
 
-    visualization_plot = TrackVisualizer(config, tracks, static_info, meta_info,
-                                         goal_recogniser=goal_recogniser, scenario=scenario, episode=episode)
+    visualization_plot = TrackVisualizer(config, tracks, static_info, meta_info, goal_recogniser=goal_recogniser,
+                                         scenario=scenario, episode=episode, agent_id=config["agent_id"])
     visualization_plot.show()
